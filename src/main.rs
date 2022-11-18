@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 struct Status {
     state_changed: bool,
@@ -17,8 +17,8 @@ impl std::fmt::Display for Status {
         }
         write!(
             f,
-            "state_changed: {}\nsubmit: {}\nstate name: {}",
-            self.state_changed, self.submit, name
+            "state_changed: {}\nsubmit: {}\nstate name: {}\ninput_recognized: {}",
+            self.state_changed, self.submit, name, self.input_recognized
         )
     }
 }
@@ -26,117 +26,6 @@ impl std::fmt::Display for Status {
 type RcRefCellDynStateLike = Rc<RefCell<dyn StateLike>>;
 type OptionRcRefCellDynStateLike = Option<RcRefCellDynStateLike>;
 type OptionVecBoxDynOptionLike = Option<Vec<Box<dyn OptionLike>>>;
-
-trait StateLike {
-    fn get_name(&self) -> String;
-    fn get_parent(&self) -> OptionRcRefCellDynStateLike;
-
-    fn input(&mut self, input: String) -> Status;
-    fn output(&self) -> String;
-
-    fn back(&mut self) -> Status;
-    //fn collect(&self, map: &mut HashMap<String, String>);
-}
-
-struct Context {
-    name: String,
-    value: String,
-}
-
-pub struct ContextState {
-    name: String,
-    index: u32,
-    parent: OptionRcRefCellDynStateLike,
-    next: OptionRcRefCellDynStateLike,
-    contexts: Vec<Context>,
-}
-
-impl ContextState {
-    fn new(
-        name: String,
-        parent: OptionRcRefCellDynStateLike,
-        next: OptionRcRefCellDynStateLike,
-        contexts: Vec<Context>,
-    ) -> ContextState {
-        ContextState {
-            name,
-            index: 0,
-            parent,
-            next,
-            contexts,
-        }
-    }
-}
-
-impl StateLike for ContextState {
-    fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn get_parent(&self) -> OptionRcRefCellDynStateLike {
-        if let Some(parent) = &self.parent {
-            return Some(Rc::clone(&parent));
-        }
-        None
-    }
-
-    fn input(&mut self, input: String) -> Status {
-        let mut status = Status {
-            state_changed: false,
-            state: None,
-            submit: false,
-            input_recognized: true,
-        };
-
-        if self.index < self.contexts.len() as u32 {
-            self.index += 1;
-        }
-
-        if let Some(mut context) = self.contexts.get_mut(self.index as usize) {
-            context.value = input;
-        }
-
-        if self.index == self.contexts.len() as u32 {
-            status.state_changed = true;
-            if self.next.is_none() {
-                status.submit = true;
-            }
-            status.state = self.next.clone();
-        }
-
-        return status;
-    }
-
-    fn output(&self) -> String {
-        let mut output = format!("[{}]\n", self.name);
-        if let Some(context) = self.contexts.get(self.index as usize) {
-            output = format!("{}{}\n", output, context.name);
-        }
-        output
-    }
-
-    fn back(&mut self) -> Status {
-        let mut status = Status {
-            state_changed: false,
-            state: None,
-            submit: false,
-            input_recognized: true,
-        };
-
-        if self.index > 0 {
-            self.index -= 1;
-        }
-
-        if self.index == 0 {
-            if self.parent.is_some() {
-                status.state_changed = true;
-                status.state = self.parent.clone();
-            }
-        }
-
-        return status;
-    }
-}
 
 trait OptionLike {
     fn input(&self, input: &String) -> bool;
@@ -182,23 +71,23 @@ impl OptionLike for StateOption {
     }
 }
 
-pub struct StateLambdaOption {
+pub struct StateClosureOption {
     name: String,
-    lambda_state: fn() -> OptionRcRefCellDynStateLike, //parent should be passed in
+    closure_state: fn() -> OptionRcRefCellDynStateLike, //parent should be passed in
     submit: bool,
     state_created: bool,
     state: OptionRcRefCellDynStateLike,
 }
 
-impl StateLambdaOption {
+impl StateClosureOption {
     fn new(
         name: String,
-        lambda_state: fn() -> OptionRcRefCellDynStateLike,
+        closure_state: fn() -> OptionRcRefCellDynStateLike,
         submit: bool,
-    ) -> StateLambdaOption {
-        StateLambdaOption {
+    ) -> StateClosureOption {
+        StateClosureOption {
             name,
-            lambda_state,
+            closure_state,
             submit,
             state_created: false,
             state: None,
@@ -206,7 +95,7 @@ impl StateLambdaOption {
     }
 }
 
-impl OptionLike for StateLambdaOption {
+impl OptionLike for StateClosureOption {
     fn input(&self, input: &String) -> bool {
         if &self.name == input {
             return true;
@@ -220,7 +109,7 @@ impl OptionLike for StateLambdaOption {
 
     fn get_state(&mut self) -> OptionRcRefCellDynStateLike {
         if !self.state_created {
-            self.state = (self.lambda_state)();
+            self.state = (self.closure_state)();
             self.state_created = true;
         }
 
@@ -229,6 +118,145 @@ impl OptionLike for StateLambdaOption {
 
     fn get_submit(&self) -> bool {
         self.submit
+    }
+}
+
+struct Collection {
+    name: String,
+    contexts: Vec<StateContext>,
+}
+
+impl Collection {
+    fn new(name: String, contexts: Vec<StateContext>) -> Collection {
+        Collection { name, contexts }
+    }
+}
+
+trait StateLike {
+    fn get_name(&self) -> String;
+    fn get_parent(&self) -> OptionRcRefCellDynStateLike;
+
+    fn input(&mut self, input: String) -> Status;
+    fn output(&self) -> String;
+
+    fn back(&mut self) -> Status;
+    fn collect_contexts(&self) -> Vec<Collection>;
+}
+
+#[derive(Clone)]
+struct StateContext {
+    name: String,
+    value: String,
+}
+
+pub struct ContextState {
+    name: String,
+    index: u32,
+    parent: OptionRcRefCellDynStateLike,
+    next: OptionRcRefCellDynStateLike,
+    contexts: Vec<StateContext>,
+}
+
+impl ContextState {
+    fn new(
+        name: String,
+        parent: OptionRcRefCellDynStateLike,
+        next: OptionRcRefCellDynStateLike,
+        contexts: Vec<StateContext>,
+    ) -> ContextState {
+        ContextState {
+            name,
+            index: 0,
+            parent,
+            next,
+            contexts,
+        }
+    }
+}
+
+impl StateLike for ContextState {
+    fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    fn get_parent(&self) -> OptionRcRefCellDynStateLike {
+        if let Some(parent) = &self.parent {
+            return Some(Rc::clone(&parent));
+        }
+        None
+    }
+
+    fn input(&mut self, input: String) -> Status {
+        let mut status = Status {
+            state_changed: false,
+            state: None,
+            submit: false,
+            input_recognized: true,
+        };
+
+        if let Some(mut context) = self.contexts.get_mut(self.index as usize) {
+            context.value = input;
+        }
+
+        if self.index < self.contexts.len() as u32 {
+            self.index += 1;
+        }
+
+        if self.index == self.contexts.len() as u32 {
+            status.state_changed = true;
+            if self.next.is_none() {
+                status.submit = true;
+            }
+            status.state = self.next.clone();
+        }
+
+        return status;
+    }
+
+    fn output(&self) -> String {
+        let mut output = format!("[{}]\n", self.name);
+        if let Some(context) = self.contexts.get(self.index as usize) {
+            output = format!("{}{}\n", output, context.name);
+        }
+        output
+    }
+
+    fn back(&mut self) -> Status {
+        let mut status = Status {
+            state_changed: false,
+            state: None,
+            submit: false,
+            input_recognized: true,
+        };
+
+        if self.index > 0 {
+            self.index -= 1;
+        }
+
+        if self.index == 0 {
+            if self.parent.is_some() {
+                status.state_changed = true;
+                status.state = self.parent.clone();
+            }
+        }
+
+        return status;
+    }
+
+    fn collect_contexts(&self) -> Vec<Collection> {
+        let collection = Collection {
+            name: self.name.clone(),
+            contexts: self.contexts.clone(),
+        };
+
+        let mut collections = vec![collection];
+
+        if let Some(parent) = &self.parent {
+            let mut parent_collections = parent.borrow().collect_contexts();
+            collections.append(&mut parent_collections);
+        }
+
+        collections
     }
 }
 
@@ -273,6 +301,17 @@ impl StateLike for OptionsState {
         };
 
         if let Some(options) = self.options.as_mut() {
+            if let Ok(input_as_u32) = input.parse::<u32>() {
+                if input_as_u32 > 0 {
+                    if let Some(option) = options.get_mut(input_as_u32 as usize - 1) {
+                        status.state_changed = true;
+                        status.state = option.get_state();
+                        status.submit = option.get_submit();
+                        status.input_recognized = true;
+                        return status;
+                    }
+                }
+            }
             for option in options.iter_mut() {
                 if option.input(&input) {
                     status.state_changed = true;
@@ -310,6 +349,14 @@ impl StateLike for OptionsState {
         }
         return status;
     }
+
+    fn collect_contexts(&self) -> Vec<Collection> {
+        let collection = Collection {
+            name: self.name.clone(),
+            contexts: Vec::new(),
+        };
+        vec![collection]
+    }
 }
 fn main() {
     let root = Rc::new(RefCell::new(OptionsState::new(
@@ -340,17 +387,17 @@ fn main() {
         let context_state = Rc::new(RefCell::new(ContextState::new(
             String::from("context_state"),
             Some(root.clone()),
-            Some(child1.clone()),
+            None,
             vec![
-                Context {
+                StateContext {
                     name: String::from("context1"),
                     value: String::new(),
                 },
-                Context {
+                StateContext {
                     name: String::from("context2"),
                     value: String::new(),
                 },
-                Context {
+                StateContext {
                     name: String::from("context3"),
                     value: String::new(),
                 },
@@ -405,6 +452,17 @@ fn main() {
         if status.state_changed {
             if let Some(state) = status.state {
                 current_state = state;
+            }
+            if status.submit {
+                println!("submitting\n");
+                let collections = current_state.borrow().collect_contexts();
+                for collection in collections {
+                    println!("{}:", collection.name);
+                    for context in collection.contexts {
+                        println!("{}: {}", context.name, context.value);
+                    }
+                }
+                break;
             }
         }
     }
