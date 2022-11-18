@@ -2,9 +2,10 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 struct Status {
     state_changed: bool,
-    state: OptionRcRefCellDynState,
+    state: OptionRcRefCellDynStateLike,
     output: String,
     submit: bool,
+    input_recognized: bool,
 }
 
 impl std::fmt::Display for Status {
@@ -23,15 +24,15 @@ impl std::fmt::Display for Status {
     }
 }
 
-type RcRefCellDynState = Rc<RefCell<dyn StateLike>>;
-type OptionRcRefCellDynState = Option<RcRefCellDynState>;
+type RcRefCellDynStateLike = Rc<RefCell<dyn StateLike>>;
+type OptionRcRefCellDynStateLike = Option<RcRefCellDynStateLike>;
 
 trait StateLike {
     fn get_name(&self) -> String;
     fn input(&mut self, input: String) -> Status;
     fn back(&mut self) -> Status;
     fn to_string(&self, offset: u32) -> String;
-    fn get_parent(&self) -> OptionRcRefCellDynState;
+    fn get_parent(&self) -> OptionRcRefCellDynStateLike;
 }
 
 struct Context {
@@ -43,8 +44,8 @@ pub struct ContextState {
     name: String,
     value: i32,
     index: u32,
-    parent: OptionRcRefCellDynState,
-    next: OptionRcRefCellDynState,
+    parent: OptionRcRefCellDynStateLike,
+    next: OptionRcRefCellDynStateLike,
     contexts: Vec<Context>,
 }
 
@@ -52,8 +53,8 @@ impl ContextState {
     fn new(
         name: String,
         value: i32,
-        parent: OptionRcRefCellDynState,
-        next: OptionRcRefCellDynState,
+        parent: OptionRcRefCellDynStateLike,
+        next: OptionRcRefCellDynStateLike,
         contexts: Vec<Context>,
     ) -> ContextState {
         ContextState {
@@ -78,6 +79,7 @@ impl StateLike for ContextState {
             state: None,
             output: String::new(),
             submit: false,
+            input_recognized: true,
         };
 
         if self.index < self.contexts.len() as u32 {
@@ -102,6 +104,7 @@ impl StateLike for ContextState {
             state: None,
             output: String::new(),
             submit: false,
+            input_recognized: true,
         };
 
         if self.index > 0 {
@@ -122,7 +125,7 @@ impl StateLike for ContextState {
         String::from("ContextState")
     }
 
-    fn get_parent(&self) -> OptionRcRefCellDynState {
+    fn get_parent(&self) -> OptionRcRefCellDynStateLike {
         if let Some(parent) = &self.parent {
             return Some(Rc::clone(&parent));
         }
@@ -132,18 +135,22 @@ impl StateLike for ContextState {
 
 trait OptionLike {
     fn input(&self, input: &String) -> bool;
-    fn get_state(&self) -> OptionRcRefCellDynState;
+    fn get_state(&mut self) -> OptionRcRefCellDynStateLike;
     fn get_submit(&self) -> bool;
 }
 pub struct StateOption {
     name: String,
-    state: OptionRcRefCellDynState,
+    state: OptionRcRefCellDynStateLike,
     submit: bool,
 }
 
 impl StateOption {
-    fn new(name: String, state: OptionRcRefCellDynState, submit: bool) -> StateOption {
-        StateOption { name, state, submit }
+    fn new(name: String, state: OptionRcRefCellDynStateLike, submit: bool) -> StateOption {
+        StateOption {
+            name,
+            state,
+            submit,
+        }
     }
 }
 
@@ -155,7 +162,7 @@ impl OptionLike for StateOption {
         false
     }
 
-    fn get_state(&self) -> OptionRcRefCellDynState {
+    fn get_state(&mut self) -> OptionRcRefCellDynStateLike {
         self.state.clone()
     }
 
@@ -166,13 +173,25 @@ impl OptionLike for StateOption {
 
 pub struct StateLambdaOption {
     name: String,
-    state: fn() -> OptionRcRefCellDynState, //parent should be passed in
+    lambda_state: fn() -> OptionRcRefCellDynStateLike, //parent should be passed in
     submit: bool,
+    state_created: bool,
+    state: OptionRcRefCellDynStateLike,
 }
 
 impl StateLambdaOption {
-    fn new(name: String, state: fn() -> OptionRcRefCellDynState, submit: bool) -> StateLambdaOption {
-        StateLambdaOption { name, state, submit }
+    fn new(
+        name: String,
+        lambda_state: fn() -> OptionRcRefCellDynStateLike,
+        submit: bool,
+    ) -> StateLambdaOption {
+        StateLambdaOption {
+            name,
+            lambda_state,
+            submit,
+            state_created: false,
+            state: None,
+        }
     }
 }
 
@@ -184,8 +203,13 @@ impl OptionLike for StateLambdaOption {
         false
     }
 
-    fn get_state(&self) -> OptionRcRefCellDynState {
-        (self.state)()
+    fn get_state(&mut self) -> OptionRcRefCellDynStateLike {
+        if !self.state_created {
+            self.state = (self.lambda_state)();
+            self.state_created = true;
+        }
+       
+        self.state.clone()
     }
 
     fn get_submit(&self) -> bool {
@@ -198,7 +222,7 @@ type OptionVecBoxDynOptionLike = Option<Vec<Box<dyn OptionLike>>>;
 pub struct OptionsState {
     name: String,
     value: i32,
-    parent: OptionRcRefCellDynState,
+    parent: OptionRcRefCellDynStateLike,
     options: OptionVecBoxDynOptionLike,
 }
 
@@ -206,7 +230,7 @@ impl OptionsState {
     fn new(
         name: String,
         value: i32,
-        parent: OptionRcRefCellDynState,
+        parent: OptionRcRefCellDynStateLike,
         options: OptionVecBoxDynOptionLike,
     ) -> OptionsState {
         OptionsState {
@@ -221,9 +245,9 @@ impl OptionsState {
         //every option state should have this as a parent
         if let Some(options) = &mut self.options {
             options.push(option);
-        }else{
+        } else {
             self.options = Some(vec![option]);
-        }   
+        }
     }
 
     // fn add_child(&mut self, name: String, child: RcRefCellDynState) {
@@ -245,8 +269,6 @@ impl OptionsState {
     //     }
     //     None
     // }
-
-
 }
 
 impl StateLike for OptionsState {
@@ -260,14 +282,16 @@ impl StateLike for OptionsState {
             state: None,
             output: String::new(),
             submit: false,
+            input_recognized: false,
         };
 
-        if let Some(options) = &self.options {
-            for option in options {
+        if let Some(options) = self.options.as_mut() {
+            for option in options.iter_mut() {
                 if option.input(&input) {
                     status.state_changed = true;
                     status.state = option.get_state();
                     status.submit = option.get_submit();
+                    status.input_recognized = true;
                     break;
                 }
             }
@@ -282,6 +306,7 @@ impl StateLike for OptionsState {
             state: None,
             output: String::new(),
             submit: false,
+            input_recognized: true,
         };
         if self.parent.is_some() {
             status.state_changed = true;
@@ -314,7 +339,7 @@ impl StateLike for OptionsState {
         String::from("OptionsState")
     }
 
-    fn get_parent(&self) -> OptionRcRefCellDynState {
+    fn get_parent(&self) -> OptionRcRefCellDynStateLike {
         if let Some(parent) = &self.parent {
             return Some(Rc::clone(&parent));
         }
@@ -330,7 +355,6 @@ fn main() {
         None,
         None,
     )));
-
 
     {
         //create children
@@ -376,35 +400,22 @@ fn main() {
         )));
 
         //create options
-        let option1 = StateOption::new(
-            String::from("option1"),
-            Some(child1.clone()),
-            false,
-        );
-        let option2 = StateOption::new(
-            String::from("option2"),
-            Some(child2.clone()),
-            false,
-        );
-        let option3 = StateOption::new(
-            String::from("option3"),
-            Some(child3.clone()),
-            false,
-        );
-        let option4 = StateOption::new(
-            String::from("option4"),
-            Some(context_state.clone()),
-            false,
-        );
+        let option1 = StateOption::new(String::from("option1"), Some(child1.clone()), false);
+        let option2 = StateOption::new(String::from("option2"), Some(child2.clone()), false);
+        let option3 = StateOption::new(String::from("option3"), Some(child3.clone()), false);
+        let option4 = StateOption::new(String::from("option4"), Some(context_state.clone()), false);
 
         //create options vector
-        let options: Vec<Box<dyn OptionLike>> = vec![Box::new(option1), Box::new(option2), Box::new(option3), Box::new(option4)];
+        let options: Vec<Box<dyn OptionLike>> = vec![
+            Box::new(option1),
+            Box::new(option2),
+            Box::new(option3),
+            Box::new(option4),
+        ];
 
         //add options to root
         root.borrow_mut().options = Some(options);
-
     }
-
 
     let status: Status;
     {
@@ -413,7 +424,6 @@ fn main() {
     }
 
     println!("{}", status);
-
 
     // {
     //     let child1 = Rc::new(RefCell::new(State::new(1, Some(root.clone()), None)));
