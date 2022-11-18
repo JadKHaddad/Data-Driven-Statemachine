@@ -25,14 +25,17 @@ impl std::fmt::Display for Status {
 
 type RcRefCellDynStateLike = Rc<RefCell<dyn StateLike>>;
 type OptionRcRefCellDynStateLike = Option<RcRefCellDynStateLike>;
+type OptionVecBoxDynOptionLike = Option<Vec<Box<dyn OptionLike>>>;
 
 trait StateLike {
     fn get_name(&self) -> String;
+    fn get_parent(&self) -> OptionRcRefCellDynStateLike;
+
     fn input(&mut self, input: String) -> Status;
     fn output(&self) -> String;
+
     fn back(&mut self) -> Status;
-    fn to_string(&self, offset: u32) -> String;
-    fn get_parent(&self) -> OptionRcRefCellDynStateLike;
+    //fn collect(&self, map: &mut HashMap<String, String>);
 }
 
 struct Context {
@@ -42,7 +45,6 @@ struct Context {
 
 pub struct ContextState {
     name: String,
-    value: i32,
     index: u32,
     parent: OptionRcRefCellDynStateLike,
     next: OptionRcRefCellDynStateLike,
@@ -52,14 +54,12 @@ pub struct ContextState {
 impl ContextState {
     fn new(
         name: String,
-        value: i32,
         parent: OptionRcRefCellDynStateLike,
         next: OptionRcRefCellDynStateLike,
         contexts: Vec<Context>,
     ) -> ContextState {
         ContextState {
             name,
-            value,
             index: 0,
             parent,
             next,
@@ -71,6 +71,13 @@ impl ContextState {
 impl StateLike for ContextState {
     fn get_name(&self) -> String {
         self.name.clone()
+    }
+
+    fn get_parent(&self) -> OptionRcRefCellDynStateLike {
+        if let Some(parent) = &self.parent {
+            return Some(Rc::clone(&parent));
+        }
+        None
     }
 
     fn input(&mut self, input: String) -> Status {
@@ -129,17 +136,6 @@ impl StateLike for ContextState {
 
         return status;
     }
-
-    fn to_string(&self, offset: u32) -> String {
-        String::from("ContextState")
-    }
-
-    fn get_parent(&self) -> OptionRcRefCellDynStateLike {
-        if let Some(parent) = &self.parent {
-            return Some(Rc::clone(&parent));
-        }
-        None
-    }
 }
 
 trait OptionLike {
@@ -147,8 +143,8 @@ trait OptionLike {
     fn get_name(&self) -> String;
     fn get_state(&mut self) -> OptionRcRefCellDynStateLike;
     fn get_submit(&self) -> bool;
-
 }
+
 pub struct StateOption {
     name: String,
     state: OptionRcRefCellDynStateLike,
@@ -236,11 +232,8 @@ impl OptionLike for StateLambdaOption {
     }
 }
 
-type OptionVecBoxDynOptionLike = Option<Vec<Box<dyn OptionLike>>>;
-
 pub struct OptionsState {
     name: String,
-    value: i32,
     parent: OptionRcRefCellDynStateLike,
     options: OptionVecBoxDynOptionLike,
 }
@@ -248,51 +241,27 @@ pub struct OptionsState {
 impl OptionsState {
     fn new(
         name: String,
-        value: i32,
         parent: OptionRcRefCellDynStateLike,
         options: OptionVecBoxDynOptionLike,
     ) -> OptionsState {
         OptionsState {
             name,
-            value,
             parent,
             options,
         }
     }
-
-    // fn add_option(&mut self, option: Box<dyn OptionLike>) {
-    //     //every option state should have this as a parent
-    //     if let Some(options) = &mut self.options {
-    //         options.push(option);
-    //     } else {
-    //         self.options = Some(vec![option]);
-    //     }
-    // }
-
-    // fn add_child(&mut self, name: String, child: RcRefCellDynState) {
-    //     //the child must have this as a parent
-    //     if let Some(children) = &mut self.options {
-    //         children.insert(name, child);
-    //     } else {
-    //         let mut children = HashMap::new();
-    //         children.insert(name, child);
-    //         self.options = Some(children);
-    //     }
-    // }
-
-    // fn get_child(&self, name: &str) -> OptionRcRefCellDynState {
-    //     if let Some(children) = &self.options {
-    //         if let Some(child) = children.get(name) {
-    //             return Some(Rc::clone(&child));
-    //         }
-    //     }
-    //     None
-    // }
 }
 
 impl StateLike for OptionsState {
     fn get_name(&self) -> String {
         self.name.clone()
+    }
+
+    fn get_parent(&self) -> OptionRcRefCellDynStateLike {
+        if let Some(parent) = &self.parent {
+            return Some(Rc::clone(&parent));
+        }
+        None
     }
 
     fn input(&mut self, input: String) -> Status {
@@ -304,7 +273,6 @@ impl StateLike for OptionsState {
         };
 
         if let Some(options) = self.options.as_mut() {
-
             for option in options.iter_mut() {
                 if option.input(&input) {
                     status.state_changed = true;
@@ -342,44 +310,10 @@ impl StateLike for OptionsState {
         }
         return status;
     }
-
-    fn to_string(&self, offset: u32) -> String {
-        //if self is a child of its own children, then we have a loop :D => StackOverflow!
-        // let mut s = String::new();
-        // for _ in 0..offset {
-        //     s.push_str("\t");
-        // }
-        // let mut result = format!("Value: {}", self.value);
-        // if let Some(children) = &self.options {
-        //     result = format!("{} | Children:", result);
-
-        //     for (name, child) in children {
-        //         let child = child.borrow();
-        //         result = format!(
-        //             "{}\n{s}\tName: {} | {}",
-        //             result,
-        //             name,
-        //             child.to_string(offset + 1)
-        //         );
-        //     }
-        // }
-        // result
-        String::from("OptionsState")
-    }
-
-    fn get_parent(&self) -> OptionRcRefCellDynStateLike {
-        if let Some(parent) = &self.parent {
-            return Some(Rc::clone(&parent));
-        }
-        None
-    }
 }
 fn main() {
-    let states: Vec<Box<dyn StateLike>> = vec![];
-
     let root = Rc::new(RefCell::new(OptionsState::new(
         String::from("root"),
-        0,
         None,
         None,
     )));
@@ -388,19 +322,16 @@ fn main() {
         //create children
         let child1 = Rc::new(RefCell::new(OptionsState::new(
             String::from("child1"),
-            1,
             Some(root.clone()),
             None,
         )));
         let child2 = Rc::new(RefCell::new(OptionsState::new(
             String::from("child2"),
-            2,
             Some(root.clone()),
             None,
         )));
         let child3 = Rc::new(RefCell::new(OptionsState::new(
             String::from("child3"),
-            3,
             Some(root.clone()),
             None,
         )));
@@ -408,7 +339,6 @@ fn main() {
         //create a context state
         let context_state = Rc::new(RefCell::new(ContextState::new(
             String::from("context_state"),
-            4,
             Some(root.clone()),
             Some(child1.clone()),
             vec![
@@ -445,14 +375,13 @@ fn main() {
         root.borrow_mut().options = Some(options);
     }
 
-
     let mut current_state: Rc<RefCell<dyn StateLike>> = root.clone();
     loop {
         let status: Status;
         {
             let mut current_state_ref = current_state.borrow_mut();
             println!("{}", current_state_ref.output());
-    
+
             let mut input = String::new();
             std::io::stdin()
                 .read_line(&mut input)
@@ -472,13 +401,12 @@ fn main() {
             println!("{}", status);
             println!("------------");
         }
-        
+
         if status.state_changed {
             if let Some(state) = status.state {
                 current_state = state;
             }
         }
-
     }
 
     // {
