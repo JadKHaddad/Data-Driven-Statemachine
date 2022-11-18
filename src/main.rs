@@ -91,6 +91,9 @@ impl StateLike for ContextState {
 
         if self.index == self.contexts.len() as u32 {
             status.state_changed = true;
+            if self.next.is_none() {
+                status.submit = true;
+            }
             status.state = self.next.clone();
         }
 
@@ -98,7 +101,7 @@ impl StateLike for ContextState {
     }
 
     fn output(&self) -> String {
-        let mut output = String::from("[ContextState]\n");
+        let mut output = format!("[{}]\n", self.name);
         if let Some(context) = self.contexts.get(self.index as usize) {
             output = format!("{}{}\n", output, context.name);
         }
@@ -317,7 +320,7 @@ impl StateLike for OptionsState {
     }
 
     fn output(&self) -> String {
-        let mut output = String::from("[OptionsState]\n");
+        let mut output = format!("[{}]\n", self.name);
         if let Some(options) = &self.options {
             for option in options {
                 output = format!("{}{}\n", output, option.get_name());
