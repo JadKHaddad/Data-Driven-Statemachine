@@ -58,7 +58,7 @@ impl State {
             result = format!("{} | Children:", result);
 
             for (name, child) in children {
-                let child: &State = &*child.borrow();
+                let child = child.borrow();
                 result = format!(
                     "{}\n{s}\tName: {} | {}",
                     result,
@@ -130,7 +130,7 @@ fn main() {
         root_mut.add_child("child4".to_string(), child4.clone());
     }
 
-    let root: &State = &*root.borrow();
+    let root = root.borrow();
 
     println!("{}", root.to_string(0));
 
