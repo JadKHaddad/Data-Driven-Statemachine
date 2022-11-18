@@ -3,7 +3,6 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 struct Status {
     state_changed: bool,
     state: OptionRcRefCellDynStateLike,
-    output: String,
     submit: bool,
     input_recognized: bool,
 }
@@ -18,8 +17,8 @@ impl std::fmt::Display for Status {
         }
         write!(
             f,
-            "state_changed: {}\nsubmit: {}\noutput: {}\nstate name: {}",
-            self.state_changed, self.submit, self.output, name
+            "state_changed: {}\nsubmit: {}\nstate name: {}",
+            self.state_changed, self.submit, name
         )
     }
 }
@@ -30,6 +29,7 @@ type OptionRcRefCellDynStateLike = Option<RcRefCellDynStateLike>;
 trait StateLike {
     fn get_name(&self) -> String;
     fn input(&mut self, input: String) -> Status;
+    fn output(&self) -> String;
     fn back(&mut self) -> Status;
     fn to_string(&self, offset: u32) -> String;
     fn get_parent(&self) -> OptionRcRefCellDynStateLike;
@@ -77,7 +77,6 @@ impl StateLike for ContextState {
         let mut status = Status {
             state_changed: false,
             state: None,
-            output: String::new(),
             submit: false,
             input_recognized: true,
         };
@@ -98,11 +97,18 @@ impl StateLike for ContextState {
         return status;
     }
 
+    fn output(&self) -> String {
+        let mut output = String::from("[ContextState]\n");
+        if let Some(context) = self.contexts.get(self.index as usize) {
+            output = format!("{}{}\n", output, context.name);
+        }
+        output
+    }
+
     fn back(&mut self) -> Status {
         let mut status = Status {
             state_changed: false,
             state: None,
-            output: String::new(),
             submit: false,
             input_recognized: true,
         };
@@ -135,8 +141,10 @@ impl StateLike for ContextState {
 
 trait OptionLike {
     fn input(&self, input: &String) -> bool;
+    fn get_name(&self) -> String;
     fn get_state(&mut self) -> OptionRcRefCellDynStateLike;
     fn get_submit(&self) -> bool;
+
 }
 pub struct StateOption {
     name: String,
@@ -160,6 +168,10 @@ impl OptionLike for StateOption {
             return true;
         }
         false
+    }
+
+    fn get_name(&self) -> String {
+        self.name.clone()
     }
 
     fn get_state(&mut self) -> OptionRcRefCellDynStateLike {
@@ -203,12 +215,16 @@ impl OptionLike for StateLambdaOption {
         false
     }
 
+    fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
     fn get_state(&mut self) -> OptionRcRefCellDynStateLike {
         if !self.state_created {
             self.state = (self.lambda_state)();
             self.state_created = true;
         }
-       
+
         self.state.clone()
     }
 
@@ -241,14 +257,14 @@ impl OptionsState {
         }
     }
 
-    fn add_option(&mut self, option: Box<dyn OptionLike>) {
-        //every option state should have this as a parent
-        if let Some(options) = &mut self.options {
-            options.push(option);
-        } else {
-            self.options = Some(vec![option]);
-        }
-    }
+    // fn add_option(&mut self, option: Box<dyn OptionLike>) {
+    //     //every option state should have this as a parent
+    //     if let Some(options) = &mut self.options {
+    //         options.push(option);
+    //     } else {
+    //         self.options = Some(vec![option]);
+    //     }
+    // }
 
     // fn add_child(&mut self, name: String, child: RcRefCellDynState) {
     //     //the child must have this as a parent
@@ -280,12 +296,12 @@ impl StateLike for OptionsState {
         let mut status = Status {
             state_changed: false,
             state: None,
-            output: String::new(),
             submit: false,
             input_recognized: false,
         };
 
         if let Some(options) = self.options.as_mut() {
+
             for option in options.iter_mut() {
                 if option.input(&input) {
                     status.state_changed = true;
@@ -300,11 +316,20 @@ impl StateLike for OptionsState {
         return status;
     }
 
+    fn output(&self) -> String {
+        let mut output = String::from("[OptionsState]\n");
+        if let Some(options) = &self.options {
+            for option in options {
+                output = format!("{}{}\n", output, option.get_name());
+            }
+        }
+        output
+    }
+
     fn back(&mut self) -> Status {
         let mut status = Status {
             state_changed: false,
             state: None,
-            output: String::new(),
             submit: false,
             input_recognized: true,
         };
@@ -417,13 +442,41 @@ fn main() {
         root.borrow_mut().options = Some(options);
     }
 
-    let status: Status;
-    {
-        let mut root = root.borrow_mut();
-        status = root.input(String::from("option4"));
-    }
 
-    println!("{}", status);
+    let mut current_state: Rc<RefCell<dyn StateLike>> = root.clone();
+    loop {
+        let status: Status;
+        {
+            let mut current_state_ref = current_state.borrow_mut();
+            println!("{}", current_state_ref.output());
+    
+            let mut input = String::new();
+            std::io::stdin()
+                .read_line(&mut input)
+                .expect("error: unable to read user input");
+            if let Some('\n') = input.chars().next_back() {
+                input.pop();
+            }
+            if let Some('\r') = input.chars().next_back() {
+                input.pop();
+            }
+            if input == "back" {
+                status = current_state_ref.back();
+            } else {
+                status = current_state_ref.input(input);
+            }
+            println!("------------");
+            println!("{}", status);
+            println!("------------");
+        }
+        
+        if status.state_changed {
+            if let Some(state) = status.state {
+                current_state = state;
+            }
+        }
+
+    }
 
     // {
     //     let child1 = Rc::new(RefCell::new(State::new(1, Some(root.clone()), None)));
