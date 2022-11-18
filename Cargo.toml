@@ -1,5 +1,5 @@
 [package]
-name = "data_driven_state_based_conversational_bot"
+name = "state_based_data_driven_conversational_bot"
 version = "0.1.0"
 edition = "2021"
 
