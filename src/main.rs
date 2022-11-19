@@ -3,10 +3,12 @@ use statemachine::{
     option_like::{OptionLike, StateClosureOption, StateOption},
     state_like::{ContextState, OptionsState, StateLike},
     status::Status,
+    state_creator::*,
 };
 use std::{cell::RefCell, rc::Rc};
 
-fn main() {
+
+fn t() {
     let root = Rc::new(RefCell::new(OptionsState::new(
         String::from("root"),
         String::from("root description"),
@@ -137,3 +139,43 @@ fn main() {
         }
     }
 }
+
+fn main() {
+    //create a state creator
+    let opt_t = OptionType::Closure("/opt/t".to_string());
+
+    let opt_c = OptionCreator  {
+        name: "option1".to_string(),
+        submit: false,
+        r#type: opt_t,
+    };
+
+    let state_t = StateType::Options(vec![opt_c]);
+
+    let state_c = StateCreator {
+        name: "root".to_string(),
+        description: "root description".to_string(),
+        r#type: state_t,
+    };
+
+
+    let opt_t = OptionType::State(state_c);
+    let opt_c = OptionCreator  {
+        name: "option1".to_string(),
+        submit: false,
+        r#type: opt_t,
+    };
+    let state_t = StateType::Options(vec![opt_c]);
+    let state_c = StateCreator {
+        name: "root".to_string(),
+        description: "root description".to_string(),
+        r#type: state_t
+    };
+
+
+    //state_c to yaml
+    let yaml = serde_yaml::to_string(&state_c).unwrap();
+    //save yaml to file
+    std::fs::write("state.yaml", yaml).unwrap();
+}
+
