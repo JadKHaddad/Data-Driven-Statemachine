@@ -57,13 +57,14 @@ fn t() {
                     value: String::new(),
                 },
             ],
+            false
         )));
 
         //create options
-        let option1 = StateOption::new(String::from("option1"), Some(child1.clone()), false);
-        let option2 = StateOption::new(String::from("option2"), Some(child2.clone()), false);
-        let option3 = StateOption::new(String::from("option3"), Some(child3.clone()), false);
-        let option4 = StateOption::new(String::from("option4"), Some(context_state.clone()), false);
+        let option1 = StateOption::new(String::from("option1"), child1.clone(), false);
+        let option2 = StateOption::new(String::from("option2"), child2.clone(), false);
+        let option3 = StateOption::new(String::from("option3"), child3.clone(), false);
+        let option4 = StateOption::new(String::from("option4"), context_state.clone(), false);
 
         //create a clousure option
         let root_clone = root.clone();
@@ -71,12 +72,12 @@ fn t() {
             String::from("option5"),
             move || {
                 println!("Creating option5");
-                Some(Rc::new(RefCell::new(OptionsState::new(
+                Rc::new(RefCell::new(OptionsState::new(
                     String::from("child5"),
                     String::from("child5 description"),
                     Some(root_clone.clone()),
                     vec![],
-                ))))
+                )))
             },
             false,
         );

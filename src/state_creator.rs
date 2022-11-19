@@ -28,6 +28,6 @@ pub enum OptionType {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum StateType {
     Options(Vec<OptionCreator>),
-    Context(Vec<ContextCreator> /*context*/, Option<Box<StateCreator>> /*next state*/),
+    Context(Vec<ContextCreator> /*context*/, Option<Box<StateCreator>> /*next state*/, bool /*submit*/),
 }
 

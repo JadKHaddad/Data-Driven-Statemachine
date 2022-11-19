@@ -13,4 +13,5 @@ pub mod context_like;
 pub mod option_like;
 pub mod state_like;
 pub mod state_creator;
+pub mod into_state_like;
 pub mod status;

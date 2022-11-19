@@ -44,6 +44,7 @@ pub struct ContextState {
     pub parent: OptionRcRefCellDynStateLike,
     pub next: OptionRcRefCellDynStateLike,
     pub contexts: Vec<StateContext>,
+    pub submit: bool,
 }
 
 impl ContextState {
@@ -53,6 +54,7 @@ impl ContextState {
         parent: OptionRcRefCellDynStateLike,
         next: OptionRcRefCellDynStateLike,
         contexts: Vec<StateContext>,
+        submit: bool,
     ) -> ContextState {
         ContextState {
             name,
@@ -61,6 +63,7 @@ impl ContextState {
             parent,
             next,
             contexts,
+            submit,
         }
     }
 }
@@ -100,6 +103,7 @@ impl StateLike for ContextState {
 
         if self.index == self.contexts.len() as u32 {
             status.state_changed = true;
+            status.submit = self.submit;
             if self.next.is_none() {
                 status.submit = true;
             }
@@ -185,7 +189,7 @@ impl StateLike for OptionsState {
 
         fn on_input_recognized(status: &mut Status, option: &mut Box<dyn OptionLike>) {
             status.state_changed = true;
-            status.state = option.get_state();
+            status.state = Some(option.get_state());
             status.submit = option.get_submit();
             status.input_recognized = true;
         }
