@@ -9,6 +9,7 @@ use std::{cell::RefCell, rc::Rc};
 fn main() {
     let root = Rc::new(RefCell::new(OptionsState::new(
         String::from("root"),
+        String::from("root description"),
         None,
         None,
     )));
@@ -17,16 +18,19 @@ fn main() {
         //create children
         let child1 = Rc::new(RefCell::new(OptionsState::new(
             String::from("child1"),
+            String::from("child1 description"),
             Some(root.clone()),
             None,
         )));
         let child2 = Rc::new(RefCell::new(OptionsState::new(
             String::from("child2"),
+            String::from("child2 description"),
             Some(root.clone()),
             None,
         )));
         let child3 = Rc::new(RefCell::new(OptionsState::new(
             String::from("child3"),
+            String::from("child3 description"),
             Some(root.clone()),
             None,
         )));
@@ -34,6 +38,7 @@ fn main() {
         //create a context state
         let context_state = Rc::new(RefCell::new(ContextState::new(
             String::from("context_state"),
+            String::from("context_state description"),
             Some(root.clone()),
             None,
             vec![
@@ -66,6 +71,7 @@ fn main() {
                 println!("Creating option5");
                 Some(Rc::new(RefCell::new(OptionsState::new(
                     String::from("child5"),
+                    String::from("child5 description"),
                     Some(root_clone.clone()),
                     None,
                 ))))

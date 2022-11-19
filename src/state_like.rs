@@ -1,11 +1,12 @@
 use crate::{
-    collection::Collection, context_like::StateContext, status::Status,
+    collection::Collection, context_like::StateContext, option_like::OptionLike, status::Status,
     OptionRcRefCellDynStateLike, OptionVecBoxDynOptionLike,
 };
 use std::rc::Rc;
 
 pub trait StateLike {
     fn get_name(&self) -> String;
+    fn get_description(&self) -> String;
     fn get_parent(&self) -> OptionRcRefCellDynStateLike;
 
     fn input(&mut self, input: String) -> Status;
@@ -17,6 +18,7 @@ pub trait StateLike {
 
 pub struct OptionsState {
     pub name: String,
+    pub description: String,
     pub parent: OptionRcRefCellDynStateLike,
     pub options: OptionVecBoxDynOptionLike,
 }
@@ -24,11 +26,13 @@ pub struct OptionsState {
 impl OptionsState {
     pub fn new(
         name: String,
+        description: String,
         parent: OptionRcRefCellDynStateLike,
         options: OptionVecBoxDynOptionLike,
     ) -> OptionsState {
         OptionsState {
             name,
+            description,
             parent,
             options,
         }
@@ -37,6 +41,7 @@ impl OptionsState {
 
 pub struct ContextState {
     pub name: String,
+    pub description: String,
     pub index: u32,
     pub parent: OptionRcRefCellDynStateLike,
     pub next: OptionRcRefCellDynStateLike,
@@ -46,12 +51,14 @@ pub struct ContextState {
 impl ContextState {
     pub fn new(
         name: String,
+        description: String,
         parent: OptionRcRefCellDynStateLike,
         next: OptionRcRefCellDynStateLike,
         contexts: Vec<StateContext>,
     ) -> ContextState {
         ContextState {
             name,
+            description,
             index: 0,
             parent,
             next,
@@ -65,6 +72,10 @@ impl StateLike for ContextState {
         self.name.clone()
     }
 
+    fn get_description(&self) -> String {
+        self.description.clone()
+    }
+
     fn get_parent(&self) -> OptionRcRefCellDynStateLike {
         if let Some(parent) = &self.parent {
             return Some(Rc::clone(&parent));
@@ -73,6 +84,7 @@ impl StateLike for ContextState {
     }
 
     fn input(&mut self, input: String) -> Status {
+        //submit will be true if all contexts are filled and the next state is not set
         let mut status = Status {
             state_changed: false,
             state: None,
@@ -101,8 +113,12 @@ impl StateLike for ContextState {
 
     fn output(&self) -> String {
         let mut output = format!("[{}]\n", self.name);
+        //add description if index is 0
+        if self.index == 0 {
+            output.push_str(&format!("{}\n", self.description));
+        }
         if let Some(context) = self.contexts.get(self.index as usize) {
-            output = format!("{}{}\n", output, context.name);
+            output.push_str(&format!("{}\n", context.name));
         }
         output
     }
@@ -115,15 +131,15 @@ impl StateLike for ContextState {
             input_recognized: true,
         };
 
-        if self.index > 0 {
-            self.index -= 1;
-        }
-
         if self.index == 0 {
             if self.parent.is_some() {
                 status.state_changed = true;
                 status.state = self.parent.clone();
             }
+        }
+
+        if self.index > 0 {
+            self.index -= 1;
         }
 
         return status;
@@ -150,6 +166,10 @@ impl StateLike for OptionsState {
         self.name.clone()
     }
 
+    fn get_description(&self) -> String {
+        self.description.clone()
+    }
+
     fn get_parent(&self) -> OptionRcRefCellDynStateLike {
         if let Some(parent) = &self.parent {
             return Some(Rc::clone(&parent));
@@ -165,25 +185,26 @@ impl StateLike for OptionsState {
             input_recognized: false,
         };
 
+        fn on_input_recognized(status: &mut Status, option: &mut Box<dyn OptionLike>) {
+            status.state_changed = true;
+            status.state = option.get_state();
+            status.submit = option.get_submit();
+            status.input_recognized = true;
+        }
+
         if let Some(options) = self.options.as_mut() {
             if let Ok(input_as_u32) = input.parse::<u32>() {
                 if input_as_u32 > 0 {
                     if let Some(option) = options.get_mut(input_as_u32 as usize - 1) {
-                        status.state_changed = true;
-                        status.state = option.get_state();
-                        status.submit = option.get_submit();
-                        status.input_recognized = true;
+                        on_input_recognized(&mut status, option);
                         return status;
                     }
                 }
             }
             for option in options.iter_mut() {
                 if option.input(&input) {
-                    status.state_changed = true;
-                    status.state = option.get_state();
-                    status.submit = option.get_submit();
-                    status.input_recognized = true;
-                    break;
+                    on_input_recognized(&mut status, option);
+                    return status;
                 }
             }
         }
@@ -193,9 +214,10 @@ impl StateLike for OptionsState {
 
     fn output(&self) -> String {
         let mut output = format!("[{}]\n", self.name);
+        output.push_str(&format!("{}\n", self.description));
         if let Some(options) = &self.options {
-            for option in options {
-                output = format!("{}{}\n", output, option.get_name());
+            for (index, option) in options.iter().enumerate() {
+                output.push_str(&format!("{}. {}\n", index + 1, option.get_name()));
             }
         }
         output
