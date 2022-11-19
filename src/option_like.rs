@@ -1,27 +1,21 @@
-use crate::{RcRefCellDynStateLike, OptionRcRefCellDynStateLike};
+use crate::{state_like::IntoStateLike, OptionRcRefCellDynStateLike};
 
+//maybe obsolet
 pub trait OptionLike {
     fn input(&self, input: &String) -> bool;
     fn get_name(&self) -> String;
-    fn get_state(&mut self) -> RcRefCellDynStateLike;
+    fn get_state(&mut self) -> OptionRcRefCellDynStateLike;
     fn get_submit(&self) -> bool;
 }
 
 pub struct StateOption {
     pub name: String,
-    pub state: RcRefCellDynStateLike,
+    pub state: Box<dyn IntoStateLike>,
     pub submit: bool,
-}
-
-pub struct StateClosureOption {
-    pub name: String,
-    pub closure_state: Box<dyn Fn() -> RcRefCellDynStateLike>, //parent should be passed in
-    pub submit: bool,
-    pub state: OptionRcRefCellDynStateLike,
 }
 
 impl StateOption {
-    pub fn new(name: String, state: RcRefCellDynStateLike, submit: bool) -> StateOption {
+    pub fn new(name: String, state: Box<dyn IntoStateLike>, submit: bool) -> StateOption {
         StateOption {
             name,
             state,
@@ -42,13 +36,21 @@ impl OptionLike for StateOption {
         self.name.clone()
     }
 
-    fn get_state(&mut self) -> RcRefCellDynStateLike {
-        self.state.clone()
+    fn get_state(&mut self) -> OptionRcRefCellDynStateLike {
+        self.state.into_state_like()
     }
 
     fn get_submit(&self) -> bool {
         self.submit
     }
+}
+
+/*
+pub struct StateClosureOption {
+    pub name: String,
+    pub closure_state: Box<dyn Fn() -> RcRefCellDynStateLike>, //parent should be passed in
+    pub submit: bool,
+    pub state: OptionRcRefCellDynStateLike,
 }
 
 impl StateClosureOption {
@@ -91,3 +93,4 @@ impl OptionLike for StateClosureOption {
         self.submit
     }
 }
+*/

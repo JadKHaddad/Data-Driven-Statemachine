@@ -1,12 +1,11 @@
 use statemachine::{
     context_like::StateContext,
-    option_like::{OptionLike, StateClosureOption, StateOption},
-    state_like::{ContextState, OptionsState, StateLike},
-    status::Status,
+    option_like::{OptionLike, StateOption},
     state_creator::*,
+    state_like::{ContextState, OptionsState, StateHolder, StateLike},
+    status::Status,
 };
 use std::{cell::RefCell, rc::Rc};
-
 
 fn t() {
     let root = Rc::new(RefCell::new(OptionsState::new(
@@ -57,20 +56,24 @@ fn t() {
                     value: String::new(),
                 },
             ],
-            false
+            false,
         )));
 
         //create options
-        let option1 = StateOption::new(String::from("option1"), child1.clone(), false);
-        let option2 = StateOption::new(String::from("option2"), child2.clone(), false);
-        let option3 = StateOption::new(String::from("option3"), child3.clone(), false);
-        let option4 = StateOption::new(String::from("option4"), context_state.clone(), false);
+        let option1 = StateOption::new(String::from("option1"), Box::new(child1.clone()), false);
+        let option2 = StateOption::new(String::from("option2"), Box::new(child2.clone()), false);
+        let option3 = StateOption::new(String::from("option3"), Box::new(child3.clone()), false);
+        let option4 = StateOption::new(
+            String::from("option4"),
+            Box::new(context_state.clone()),
+            false,
+        );
 
         //create a clousure option
         let root_clone = root.clone();
-        let option5 = StateClosureOption::new(
+        let option5 = StateOption::new(
             String::from("option5"),
-            move || {
+            Box::new(StateHolder::new(move || {
                 println!("Creating option5");
                 Rc::new(RefCell::new(OptionsState::new(
                     String::from("child5"),
@@ -78,7 +81,7 @@ fn t() {
                     Some(root_clone.clone()),
                     vec![],
                 )))
-            },
+            })),
             false,
         );
 
@@ -145,7 +148,7 @@ fn main() {
     //create a state creator
     let opt_t = OptionType::Closure("/opt/t".to_string());
 
-    let opt_c = OptionCreator  {
+    let opt_c = OptionCreator {
         name: "option1".to_string(),
         submit: false,
         r#type: opt_t,
@@ -159,9 +162,8 @@ fn main() {
         r#type: state_t,
     };
 
-
     let opt_t = OptionType::State(state_c);
-    let opt_c = OptionCreator  {
+    let opt_c = OptionCreator {
         name: "option1".to_string(),
         submit: false,
         r#type: opt_t,
@@ -170,13 +172,13 @@ fn main() {
     let state_c = StateCreator {
         name: "root".to_string(),
         description: "root description".to_string(),
-        r#type: state_t
+        r#type: state_t,
     };
 
-
     //state_c to yaml
-    let yaml = serde_yaml::to_string(&state_c).unwrap();
+    //let yaml = serde_yaml::to_string(&state_c).unwrap();
     //save yaml to file
-    std::fs::write("state.yaml", yaml).unwrap();
-}
+    //std::fs::write("state.yaml", yaml).unwrap();
 
+    t();
+}

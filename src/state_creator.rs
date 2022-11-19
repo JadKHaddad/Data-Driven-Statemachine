@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+//TODO: Rework using dynamic IntoStateLike
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct StateCreator {
     pub name: String,
@@ -9,7 +11,7 @@ pub struct StateCreator {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ContextCreator {
-    pub name: String
+    pub name: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -28,6 +30,9 @@ pub enum OptionType {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum StateType {
     Options(Vec<OptionCreator>),
-    Context(Vec<ContextCreator> /*context*/, Option<Box<StateCreator>> /*next state*/, bool /*submit*/),
+    Context(
+        Vec<ContextCreator>,       /*context*/
+        Option<Box<StateCreator>>, /*next state*/
+        bool,                      /*submit*/
+    ),
 }
-

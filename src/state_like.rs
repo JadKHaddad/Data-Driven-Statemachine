@@ -1,6 +1,7 @@
 use crate::{
     collection::Collection, context_like::StateContext, option_like::OptionLike, status::Status,
-    OptionRcRefCellDynStateLike, VecBoxDynOptionLike,
+    OptionRcRefCellDynStateLike, RcRefCellContextState, RcRefCellDynStateLike,
+    RcRefCellOptionsState, VecBoxDynOptionLike,
 };
 use std::rc::Rc;
 
@@ -14,6 +15,53 @@ pub trait StateLike {
     fn collect_contexts(&self) -> Vec<Collection>;
 }
 
+pub trait IntoStateLike {
+    fn into_state_like(&mut self) -> OptionRcRefCellDynStateLike;
+}
+
+impl IntoStateLike for RcRefCellOptionsState {
+    fn into_state_like(&mut self) -> OptionRcRefCellDynStateLike {
+        Some(self.clone())
+    }
+}
+
+impl IntoStateLike for RcRefCellContextState {
+    fn into_state_like(&mut self) -> OptionRcRefCellDynStateLike {
+        Some(self.clone())
+    }
+}
+
+impl IntoStateLike for RcRefCellDynStateLike {
+    fn into_state_like(&mut self) -> OptionRcRefCellDynStateLike {
+        Some(self.clone())
+    }
+}
+
+impl IntoStateLike for StateHolder {
+    fn into_state_like(&mut self) -> OptionRcRefCellDynStateLike {
+        if let Some(state) = &self.state {
+            dbg!("State already exists");
+            return Some(state.clone());
+        }
+        dbg!("State creating");
+        let state = (self.closure_state)();
+        self.state = Some(state.clone());
+        Some(state)
+    }
+}
+pub struct StateHolder {
+    pub closure_state: Box<dyn Fn() -> RcRefCellDynStateLike>, //parent should be passed in
+    pub state: OptionRcRefCellDynStateLike,
+}
+
+impl StateHolder {
+    pub fn new(closure_state: impl Fn() -> RcRefCellDynStateLike + 'static) -> StateHolder {
+        StateHolder {
+            closure_state: Box::new(closure_state),
+            state: None,
+        }
+    }
+}
 pub struct OptionsState {
     pub name: String,
     pub description: String,
@@ -42,7 +90,7 @@ pub struct ContextState {
     pub description: String,
     pub index: u32,
     pub parent: OptionRcRefCellDynStateLike,
-    pub next: OptionRcRefCellDynStateLike,
+    pub next: Option<Box<dyn IntoStateLike>>,
     pub contexts: Vec<StateContext>,
     pub submit: bool,
 }
@@ -52,7 +100,7 @@ impl ContextState {
         name: String,
         description: String,
         parent: OptionRcRefCellDynStateLike,
-        next: OptionRcRefCellDynStateLike,
+        next: Option<Box<dyn IntoStateLike>>,
         contexts: Vec<StateContext>,
         submit: bool,
     ) -> ContextState {
@@ -104,10 +152,14 @@ impl StateLike for ContextState {
         if self.index == self.contexts.len() as u32 {
             status.state_changed = true;
             status.submit = self.submit;
-            if self.next.is_none() {
+
+            if let Some(next) = &mut self.next {
+                dbg!("Next state");
+                status.state = next.into_state_like();
+            } else {
+                dbg!("No next state");
                 status.submit = true;
             }
-            status.state = self.next.clone();
         }
 
         return status;
@@ -189,27 +241,25 @@ impl StateLike for OptionsState {
 
         fn on_input_recognized(status: &mut Status, option: &mut Box<dyn OptionLike>) {
             status.state_changed = true;
-            status.state = Some(option.get_state());
+            status.state = option.get_state();
             status.submit = option.get_submit();
             status.input_recognized = true;
         }
 
-
-            if let Ok(input_as_u32) = input.parse::<u32>() {
-                if input_as_u32 > 0 {
-                    if let Some(option) = self.options.get_mut(input_as_u32 as usize - 1) {
-                        on_input_recognized(&mut status, option);
-                        return status;
-                    }
-                }
-            }
-            for option in self.options.iter_mut() {
-                if option.input(&input) {
+        if let Ok(input_as_u32) = input.parse::<u32>() {
+            if input_as_u32 > 0 {
+                if let Some(option) = self.options.get_mut(input_as_u32 as usize - 1) {
                     on_input_recognized(&mut status, option);
                     return status;
                 }
             }
-        
+        }
+        for option in self.options.iter_mut() {
+            if option.input(&input) {
+                on_input_recognized(&mut status, option);
+                return status;
+            }
+        }
 
         return status;
     }
