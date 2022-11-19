@@ -11,7 +11,7 @@ fn main() {
         String::from("root"),
         String::from("root description"),
         None,
-        None,
+        vec![],
     )));
 
     {
@@ -20,19 +20,19 @@ fn main() {
             String::from("child1"),
             String::from("child1 description"),
             Some(root.clone()),
-            None,
+            vec![],
         )));
         let child2 = Rc::new(RefCell::new(OptionsState::new(
             String::from("child2"),
             String::from("child2 description"),
             Some(root.clone()),
-            None,
+            vec![],
         )));
         let child3 = Rc::new(RefCell::new(OptionsState::new(
             String::from("child3"),
             String::from("child3 description"),
             Some(root.clone()),
-            None,
+            vec![],
         )));
 
         //create a context state
@@ -73,7 +73,7 @@ fn main() {
                     String::from("child5"),
                     String::from("child5 description"),
                     Some(root_clone.clone()),
-                    None,
+                    vec![],
                 ))))
             },
             false,
@@ -89,7 +89,7 @@ fn main() {
         ];
 
         //add options to root
-        root.borrow_mut().options = Some(options);
+        root.borrow_mut().options = options;
     }
 
     let mut current_state: Rc<RefCell<dyn StateLike>> = root.clone();

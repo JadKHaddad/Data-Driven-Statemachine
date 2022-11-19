@@ -1,6 +1,6 @@
 use crate::{
     collection::Collection, context_like::StateContext, option_like::OptionLike, status::Status,
-    OptionRcRefCellDynStateLike, OptionVecBoxDynOptionLike,
+    OptionRcRefCellDynStateLike, VecBoxDynOptionLike,
 };
 use std::rc::Rc;
 
@@ -8,10 +8,8 @@ pub trait StateLike {
     fn get_name(&self) -> String;
     fn get_description(&self) -> String;
     fn get_parent(&self) -> OptionRcRefCellDynStateLike;
-
     fn input(&mut self, input: String) -> Status;
     fn output(&self) -> String;
-
     fn back(&mut self) -> Status;
     fn collect_contexts(&self) -> Vec<Collection>;
 }
@@ -20,7 +18,7 @@ pub struct OptionsState {
     pub name: String,
     pub description: String,
     pub parent: OptionRcRefCellDynStateLike,
-    pub options: OptionVecBoxDynOptionLike,
+    pub options: VecBoxDynOptionLike,
 }
 
 impl OptionsState {
@@ -28,7 +26,7 @@ impl OptionsState {
         name: String,
         description: String,
         parent: OptionRcRefCellDynStateLike,
-        options: OptionVecBoxDynOptionLike,
+        options: VecBoxDynOptionLike,
     ) -> OptionsState {
         OptionsState {
             name,
@@ -192,22 +190,22 @@ impl StateLike for OptionsState {
             status.input_recognized = true;
         }
 
-        if let Some(options) = self.options.as_mut() {
+
             if let Ok(input_as_u32) = input.parse::<u32>() {
                 if input_as_u32 > 0 {
-                    if let Some(option) = options.get_mut(input_as_u32 as usize - 1) {
+                    if let Some(option) = self.options.get_mut(input_as_u32 as usize - 1) {
                         on_input_recognized(&mut status, option);
                         return status;
                     }
                 }
             }
-            for option in options.iter_mut() {
+            for option in self.options.iter_mut() {
                 if option.input(&input) {
                     on_input_recognized(&mut status, option);
                     return status;
                 }
             }
-        }
+        
 
         return status;
     }
@@ -215,10 +213,8 @@ impl StateLike for OptionsState {
     fn output(&self) -> String {
         let mut output = format!("[{}]\n", self.name);
         output.push_str(&format!("{}\n", self.description));
-        if let Some(options) = &self.options {
-            for (index, option) in options.iter().enumerate() {
-                output.push_str(&format!("{}. {}\n", index + 1, option.get_name()));
-            }
+        for (index, option) in self.options.iter().enumerate() {
+            output.push_str(&format!("{}. {}\n", index + 1, option.get_name()));
         }
         output
     }

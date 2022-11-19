@@ -5,6 +5,7 @@ use state_like::StateLike;
 
 pub type RcRefCellDynStateLike = Rc<RefCell<dyn StateLike>>;
 pub type OptionRcRefCellDynStateLike = Option<RcRefCellDynStateLike>;
+pub type VecBoxDynOptionLike = Vec<Box<dyn OptionLike>>;
 pub type OptionVecBoxDynOptionLike = Option<Vec<Box<dyn OptionLike>>>;
 
 pub mod collection;
