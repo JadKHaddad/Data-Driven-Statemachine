@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "state_based_data_driven_conversational_bot"
+name = "statemachine"
 version = "0.1.0"

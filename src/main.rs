@@ -73,7 +73,7 @@ impl OptionLike for StateOption {
 
 pub struct StateClosureOption {
     name: String,
-    closure_state: fn() -> OptionRcRefCellDynStateLike, //parent should be passed in
+    closure_state: Box<dyn Fn() -> OptionRcRefCellDynStateLike>, //fn() -> OptionRcRefCellDynStateLike, //parent should be passed in
     submit: bool,
     state_created: bool,
     state: OptionRcRefCellDynStateLike,
@@ -82,12 +82,12 @@ pub struct StateClosureOption {
 impl StateClosureOption {
     fn new(
         name: String,
-        closure_state: fn() -> OptionRcRefCellDynStateLike,
+        closure_state: impl Fn() -> OptionRcRefCellDynStateLike + 'static,
         submit: bool,
     ) -> StateClosureOption {
         StateClosureOption {
             name,
-            closure_state,
+            closure_state: Box::new(closure_state),
             submit,
             state_created: false,
             state: None,
@@ -249,14 +249,13 @@ impl StateLike for ContextState {
             contexts: self.contexts.clone(),
         };
 
-        let mut collections = vec![collection];
-
         if let Some(parent) = &self.parent {
             let mut parent_collections = parent.borrow().collect_contexts();
-            collections.append(&mut parent_collections);
+            parent_collections.push(collection);
+            return parent_collections;
         }
 
-        collections
+        vec![collection]
     }
 }
 
@@ -410,12 +409,28 @@ fn main() {
         let option3 = StateOption::new(String::from("option3"), Some(child3.clone()), false);
         let option4 = StateOption::new(String::from("option4"), Some(context_state.clone()), false);
 
+        //create a clousure option
+        let root_clone = root.clone();
+        let option5 = StateClosureOption::new(
+            String::from("option5"),
+            move || {
+                println!("Creating option5");
+                Some(Rc::new(RefCell::new(OptionsState::new(
+                    String::from("child5"),
+                    Some(root_clone.clone()),
+                    None,
+                ))))
+            },
+            false,
+        );
+
         //create options vector
         let options: Vec<Box<dyn OptionLike>> = vec![
             Box::new(option1),
             Box::new(option2),
             Box::new(option3),
             Box::new(option4),
+            Box::new(option5),
         ];
 
         //add options to root
