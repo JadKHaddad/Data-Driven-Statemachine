@@ -1,6 +1,6 @@
 use crate::{state_like::IntoStateLike, OptionRcRefCellDynStateLike};
 
-//maybe obsolet
+//TODO: maybe obsolet. Might be replaced by a normal Option struct in the OptionsState struct
 pub trait OptionLike {
     fn input(&self, input: &String) -> bool;
     fn get_name(&self) -> String;
