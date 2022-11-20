@@ -49,6 +49,7 @@ impl IntoStateLike for StateHolder {
         Some(state)
     }
 }
+
 pub struct StateHolder {
     pub closure_state: Box<dyn Fn() -> RcRefCellDynStateLike>, //parent should be passed in
     pub state: OptionRcRefCellDynStateLike,
@@ -134,6 +135,7 @@ impl StateLike for ContextState {
 
     fn input(&mut self, input: String) -> Status {
         //submit will be true if all contexts are filled and the next state is not set
+        //if the next state is set, then the submit will be the state's submit value
         let mut status = Status {
             state_changed: false,
             state: None,

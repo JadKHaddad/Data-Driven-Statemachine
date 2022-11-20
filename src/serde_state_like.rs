@@ -1,38 +1,36 @@
 use serde::{Deserialize, Serialize};
 
-//TODO: Rework using dynamic IntoStateLike
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct StateCreator {
+pub struct SerDeState {
     pub name: String,
     pub description: String,
     pub r#type: StateType,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ContextCreator {
+pub struct SerDeContext {
     pub name: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct OptionCreator {
+pub struct SerDeOption {
     pub name: String,
     pub submit: bool,
-    pub r#type: OptionType,
+    pub state: SerDeIntoStateLike,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum OptionType {
-    State(StateCreator),
-    Closure(String /*path to state*/),
+pub enum SerDeIntoStateLike {
+    Inline(SerDeState),
+    Path(String /*path to state*/),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum StateType {
-    Options(Vec<OptionCreator>),
+    Options(Vec<SerDeOption>),
     Context(
-        Vec<ContextCreator>,       /*context*/
-        Option<Box<StateCreator>>, /*next state*/
-        bool,                      /*submit*/
+        Vec<SerDeContext>,               /*context*/
+        Option<Box<SerDeIntoStateLike>>, /*next state*/
+        bool,                            /*submit*/
     ),
 }

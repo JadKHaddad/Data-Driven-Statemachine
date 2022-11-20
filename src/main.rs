@@ -1,7 +1,7 @@
 use statemachine::{
     context_like::StateContext,
     option_like::{OptionLike, StateOption},
-    state_creator::*,
+    serde_state_like::*,
     state_like::{ContextState, OptionsState, StateHolder, StateLike},
     status::Status,
 };
@@ -146,34 +146,34 @@ fn t() {
 
 fn main() {
     //create a state creator
-    let opt_t = OptionType::Closure("/opt/t".to_string());
+    // let opt_t = SerDeIntoStateLike::Path("/opt/t".to_string());
 
-    let opt_c = OptionCreator {
-        name: "option1".to_string(),
-        submit: false,
-        r#type: opt_t,
-    };
+    // let opt_c = SerDeOption {
+    //     name: "option1".to_string(),
+    //     submit: false,
+    //     r#type: opt_t,
+    // };
 
-    let state_t = StateType::Options(vec![opt_c]);
+    // let state_t = StateType::Options(vec![opt_c]);
 
-    let state_c = StateCreator {
-        name: "root".to_string(),
-        description: "root description".to_string(),
-        r#type: state_t,
-    };
+    // let state_c = SerDeState {
+    //     name: "root".to_string(),
+    //     description: "root description".to_string(),
+    //     r#type: state_t,
+    // };
 
-    let opt_t = OptionType::State(state_c);
-    let opt_c = OptionCreator {
-        name: "option1".to_string(),
-        submit: false,
-        r#type: opt_t,
-    };
-    let state_t = StateType::Options(vec![opt_c]);
-    let state_c = StateCreator {
-        name: "root".to_string(),
-        description: "root description".to_string(),
-        r#type: state_t,
-    };
+    // let opt_t = SerDeIntoStateLike::Inline(state_c);
+    // let opt_c = SerDeIntoStateLike {
+    //     name: "option1".to_string(),
+    //     submit: false,
+    //     state: opt_t,
+    // };
+    // let state_t = StateType::Options(vec![opt_c]);
+    // let state_c = SerDeState {
+    //     name: "root".to_string(),
+    //     description: "root description".to_string(),
+    //     r#type: state_t,
+    // };
 
     //state_c to yaml
     //let yaml = serde_yaml::to_string(&state_c).unwrap();

@@ -15,6 +15,6 @@ pub type OptionVecBoxDynOptionLike = Option<Vec<Box<dyn OptionLike>>>;
 pub mod collection;
 pub mod context_like;
 pub mod option_like;
-pub mod state_creator;
+pub mod serde_state_like;
 pub mod state_like;
 pub mod status;
