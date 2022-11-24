@@ -1,4 +1,4 @@
-use crate::{state_like::IntoStateLike, OptionRcRefCellDynStateLike};
+use crate::{OptionRcRefCellDynStateLike, BoxDynIntoStateLike};
 
 //TODO: maybe obsolet. Might be replaced by a normal Option struct in the OptionsState struct
 pub trait OptionLike {
@@ -10,12 +10,12 @@ pub trait OptionLike {
 
 pub struct StateOption {
     pub name: String,
-    pub state: Box<dyn IntoStateLike>,
+    pub state: BoxDynIntoStateLike,
     pub submit: bool,
 }
 
 impl StateOption {
-    pub fn new(name: String, state: Box<dyn IntoStateLike>, submit: bool) -> StateOption {
+    pub fn new(name: String, state: BoxDynIntoStateLike, submit: bool) -> StateOption {
         StateOption {
             name,
             state,

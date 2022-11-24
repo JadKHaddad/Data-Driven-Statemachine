@@ -1,7 +1,7 @@
 use crate::{
     collection::Collection, context_like::StateContext, option_like::OptionLike, status::Status,
     OptionRcRefCellDynStateLike, RcRefCellContextState, RcRefCellDynStateLike,
-    RcRefCellOptionsState, VecBoxDynOptionLike,
+    RcRefCellOptionsState, VecBoxDynOptionLike, OptionBoxDynIntoStateLike,
 };
 use std::rc::Rc;
 
@@ -91,7 +91,7 @@ pub struct ContextState {
     pub description: String,
     pub index: u32,
     pub parent: OptionRcRefCellDynStateLike,
-    pub next: Option<Box<dyn IntoStateLike>>,
+    pub next: OptionBoxDynIntoStateLike,
     pub contexts: Vec<StateContext>,
     pub submit: bool,
 }
@@ -101,7 +101,7 @@ impl ContextState {
         name: String,
         description: String,
         parent: OptionRcRefCellDynStateLike,
-        next: Option<Box<dyn IntoStateLike>>,
+        next: OptionBoxDynIntoStateLike,
         contexts: Vec<StateContext>,
         submit: bool,
     ) -> ContextState {
