@@ -146,24 +146,44 @@ fn t() {
 
 fn main() {
     //create a state creator
-    // let opt_t = SerDeIntoStateLike::Path("/opt/t".to_string());
+    let ser_into_state = SerDeIntoStateLike::Path("/opt/t".to_string());
 
-    // let opt_c = SerDeOption {
-    //     name: "option1".to_string(),
-    //     submit: false,
-    //     r#type: opt_t,
-    // };
+    let opt_path = SerDeOption {
+        name: "option1".to_string(),
+        submit: false,
+        state: ser_into_state,
+    };
 
-    // let state_t = StateType::Options(vec![opt_c]);
 
-    // let state_c = SerDeState {
-    //     name: "root".to_string(),
-    //     description: "root description".to_string(),
-    //     r#type: state_t,
-    // };
+
+    let opt_inline = SerDeOption{
+        name: "option2".to_string(),
+        submit: false,
+        state: SerDeIntoStateLike::Inline(SerDeState{
+            name: "child2".to_string(),
+            description: "child2 description".to_string(),
+            r#type: StateType::Context(
+                vec![
+                    SerDeContext{name: "context1".to_string()},
+                    SerDeContext{name: "context2".to_string()},
+                    SerDeContext{name: "context3".to_string()}
+                    ], 
+            None, false)
+
+        })
+    };
+
+
+    let state_type = StateType::Options(vec![opt_path, opt_inline]);
+
+    let state_c = SerDeState {
+        name: "root".to_string(),
+        description: "root description".to_string(),
+        r#type: state_type,
+    };
 
     // let opt_t = SerDeIntoStateLike::Inline(state_c);
-    // let opt_c = SerDeIntoStateLike {
+    // let opt_c = SerDeOption{
     //     name: "option1".to_string(),
     //     submit: false,
     //     state: opt_t,
@@ -176,9 +196,9 @@ fn main() {
     // };
 
     //state_c to yaml
-    //let yaml = serde_yaml::to_string(&state_c).unwrap();
+    let yaml = serde_yaml::to_string(&state_c).unwrap();
     //save yaml to file
-    //std::fs::write("state.yaml", yaml).unwrap();
+    std::fs::write("state.yaml", yaml).unwrap();
 
-    t();
+    //t();
 }

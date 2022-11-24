@@ -9,8 +9,9 @@ pub type RcRefCellOptionsState = Rc<RefCell<OptionsState>>;
 pub type RcRefCellContextState = Rc<RefCell<ContextState>>;
 pub type RcRefCellDynStateLike = Rc<RefCell<dyn StateLike>>;
 pub type OptionRcRefCellDynStateLike = Option<RcRefCellDynStateLike>;
-pub type VecBoxDynOptionLike = Vec<Box<dyn OptionLike>>;
-pub type OptionVecBoxDynOptionLike = Option<Vec<Box<dyn OptionLike>>>;
+pub type BoxDynOptionLike = Box<dyn OptionLike>;
+pub type VecBoxDynOptionLike = Vec<BoxDynOptionLike>;
+pub type OptionVecBoxDynOptionLike = Option<VecBoxDynOptionLike>;
 
 pub mod collection;
 pub mod context_like;
