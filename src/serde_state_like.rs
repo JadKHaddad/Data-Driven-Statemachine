@@ -12,7 +12,7 @@ pub struct SerDeState {
 }
 
 impl SerDeState {
-    pub fn into_state_like(self) -> RcRefCellDynStateLike {
+    pub fn into_state_like(self, parent: OptionRcRefCellDynStateLike) -> RcRefCellDynStateLike {
         let state = match self.r#type {
             StateType::Context(contexts, next, submit) => {
                 let contexts: Vec<StateContext> =
@@ -56,7 +56,7 @@ pub struct SerDeOption {
 }
 
 impl SerDeOption {
-    pub fn into_option_like(self) -> BoxDynOptionLike {
+    pub fn into_option_like(self, parent: OptionRcRefCellDynStateLike) -> BoxDynOptionLike {
         todo!()
     }
 }
