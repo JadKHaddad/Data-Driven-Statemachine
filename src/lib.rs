@@ -8,8 +8,12 @@ use state_like::StateLike;
 
 pub type RcRefCellOptionsState = Rc<RefCell<OptionsState>>;
 pub type RcRefCellContextState = Rc<RefCell<ContextState>>;
+
 pub type RcRefCellDynStateLike = Rc<RefCell<dyn StateLike>>;
 pub type OptionRcRefCellDynStateLike = Option<RcRefCellDynStateLike>;
+
+pub type RcRefCellDynIntoStateLike = Rc<RefCell<dyn IntoStateLike>>;
+pub type OptionRcRefCellDynIntoStateLike = Option<RcRefCellDynIntoStateLike>;
 
 pub type BoxDynIntoStateLike = Box<dyn IntoStateLike>;
 pub type OptionBoxDynIntoStateLike = Option<BoxDynIntoStateLike>;

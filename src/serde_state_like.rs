@@ -1,8 +1,13 @@
-use std::{cell::RefCell, rc::Rc, task::Context};
+use std::{cell::RefCell, rc::Rc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{context_like::StateContext, RcRefCellDynStateLike, state_like::ContextState, BoxDynOptionLike, OptionRcRefCellDynStateLike};
+use crate::{
+    context_like::StateContext,
+    option_like::StateOption,
+    state_like::{ContextState, OptionsState},
+    BoxDynIntoStateLike, BoxDynOptionLike, OptionRcRefCellDynStateLike, RcRefCellDynStateLike,
+};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SerDeState {
@@ -13,24 +18,40 @@ pub struct SerDeState {
 
 impl SerDeState {
     pub fn into_state_like(self, parent: OptionRcRefCellDynStateLike) -> RcRefCellDynStateLike {
-        let state = match self.r#type {
+        let state: RcRefCellDynStateLike = match self.r#type {
             StateType::Context(contexts, next, submit) => {
                 let contexts: Vec<StateContext> =
                     contexts.into_iter().map(|x| x.into_context()).collect();
-                    Box::new(ContextState::new(
-                        self.name,
-                        self.description,
-                        None,
-                        None,
-                        contexts,
-                        submit
-                    ))
+                let state = Rc::new(RefCell::new(ContextState::new(
+                    self.name,
+                    self.description,
+                    parent,
+                    None,
+                    contexts,
+                    submit,
+                )));
+                if let Some(next) = next {
+                    let next_state = next.into_into_state_like(Some(state.clone()));
+                    state.borrow_mut().next = Some(next_state);
+                }
+                state
             }
             StateType::Options(options) => {
-                todo!()
+                let state = Rc::new(RefCell::new(OptionsState::new(
+                    self.name,
+                    self.description,
+                    parent,
+                    vec![],
+                )));
+                let options: Vec<BoxDynOptionLike> = options
+                    .into_iter()
+                    .map(|x| x.into_option_like(Some(state.clone())))
+                    .collect();
+                state.borrow_mut().options = options;
+                state
             }
         };
-        todo!()
+        state
     }
 }
 
@@ -57,7 +78,8 @@ pub struct SerDeOption {
 
 impl SerDeOption {
     pub fn into_option_like(self, parent: OptionRcRefCellDynStateLike) -> BoxDynOptionLike {
-        todo!()
+        let state = self.state.into_into_state_like(parent);
+        Box::new(StateOption::new(self.name, state, self.submit))
     }
 }
 
@@ -68,8 +90,14 @@ pub enum SerDeIntoStateLike {
 }
 
 impl SerDeIntoStateLike {
-    pub fn into_into_state_like(self) -> OptionRcRefCellDynStateLike {
-        todo!()
+    pub fn into_into_state_like(self, parent: OptionRcRefCellDynStateLike) -> BoxDynIntoStateLike {
+        match self {
+            SerDeIntoStateLike::Inline(state) => Box::new(state.into_state_like(parent)),
+            SerDeIntoStateLike::Path(path) => {
+                //stateholder
+                todo!();
+            }
+        }
     }
 }
 
