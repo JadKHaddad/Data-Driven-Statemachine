@@ -56,11 +56,15 @@ pub struct StateHolder {
 }
 
 impl StateHolder {
-    pub fn new(closure_state: impl Fn() -> RcRefCellDynStateLike + 'static) -> StateHolder {
-        StateHolder {
+    pub fn new(closure_state: impl Fn() -> RcRefCellDynStateLike + 'static, lazy: bool) -> StateHolder {
+        let mut state_holder = StateHolder {
             closure_state: Box::new(closure_state),
             state: None,
+        };
+        if !lazy {
+            state_holder.into_state_like();
         }
+        state_holder
     }
 }
 pub struct OptionsState {

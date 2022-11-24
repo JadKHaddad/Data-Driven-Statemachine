@@ -86,14 +86,14 @@ impl SerDeOption {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SerDeIntoStateLike {
     Inline(SerDeState),
-    Path(String /*path to state*/),
+    Path(String /*path to state*/, bool /*lazy*/),
 }
 
 impl SerDeIntoStateLike {
     pub fn into_into_state_like(self, parent: OptionRcRefCellDynStateLike) -> BoxDynIntoStateLike {
         match self {
             SerDeIntoStateLike::Inline(state) => Box::new(state.into_state_like(parent)),
-            SerDeIntoStateLike::Path(path) => {
+            SerDeIntoStateLike::Path(path, lazy) => {
                 //stateholder
                 todo!();
             }

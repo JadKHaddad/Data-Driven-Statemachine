@@ -73,15 +73,18 @@ fn t() {
         let root_clone = root.clone();
         let option5 = StateOption::new(
             String::from("option5"),
-            Box::new(StateHolder::new(move || {
-                println!("Creating option5");
-                Rc::new(RefCell::new(OptionsState::new(
-                    String::from("child5"),
-                    String::from("child5 description"),
-                    Some(root_clone.clone()),
-                    vec![],
-                )))
-            })),
+            Box::new(StateHolder::new(
+                move || {
+                    println!("Creating option5");
+                    Rc::new(RefCell::new(OptionsState::new(
+                        String::from("child5"),
+                        String::from("child5 description"),
+                        Some(root_clone.clone()),
+                        vec![],
+                    )))
+                },
+                false,
+            )),
             false,
         );
 
@@ -145,8 +148,9 @@ fn t() {
 }
 
 fn main() {
+    t();
     //create a state creator
-    let ser_into_state = SerDeIntoStateLike::Path("/opt/t".to_string());
+    let ser_into_state = SerDeIntoStateLike::Path("/opt/t".to_string(), true);
 
     let opt_path = SerDeOption {
         name: "option1".to_string(),
@@ -154,25 +158,29 @@ fn main() {
         state: ser_into_state,
     };
 
-
-
-    let opt_inline = SerDeOption{
+    let opt_inline = SerDeOption {
         name: "option2".to_string(),
         submit: false,
-        state: SerDeIntoStateLike::Inline(SerDeState{
+        state: SerDeIntoStateLike::Inline(SerDeState {
             name: "child2".to_string(),
             description: "child2 description".to_string(),
             r#type: StateType::Context(
                 vec![
-                    SerDeContext{name: "context1".to_string()},
-                    SerDeContext{name: "context2".to_string()},
-                    SerDeContext{name: "context3".to_string()}
-                    ], 
-            None, false)
-
-        })
+                    SerDeContext {
+                        name: "context1".to_string(),
+                    },
+                    SerDeContext {
+                        name: "context2".to_string(),
+                    },
+                    SerDeContext {
+                        name: "context3".to_string(),
+                    },
+                ],
+                None,
+                false,
+            ),
+        }),
     };
-
 
     let state_type = StateType::Options(vec![opt_path, opt_inline]);
 
@@ -199,6 +207,4 @@ fn main() {
     let yaml = serde_yaml::to_string(&state_c).unwrap();
     //save yaml to file
     std::fs::write("state.yaml", yaml).unwrap();
-
-    //t();
 }
