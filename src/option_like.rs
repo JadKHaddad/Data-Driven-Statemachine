@@ -24,6 +24,18 @@ impl StateOption {
     }
 }
 
+pub struct StateContextOption {
+    pub name: String,
+    pub state: BoxDynIntoStateLike, //context State with only one context. parent is normally set. the next state would be the parent of the state that has this option
+    //submit is always false
+}
+
+impl StateContextOption {
+    pub fn new(name: String, state: BoxDynIntoStateLike) -> StateContextOption {
+        StateContextOption { name, state }
+    }
+}
+
 impl OptionLike for StateOption {
     fn input(&self, input: &String) -> bool {
         if &self.name == input {
@@ -42,6 +54,27 @@ impl OptionLike for StateOption {
 
     fn get_submit(&self) -> bool {
         self.submit
+    }
+}
+
+impl OptionLike for StateContextOption {
+    fn input(&self, input: &String) -> bool {
+        if &self.name == input {
+            return true;
+        }
+        false
+    }
+
+    fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    fn get_state(&mut self) -> OptionRcRefCellDynStateLike {
+        self.state.into_state_like()
+    }
+
+    fn get_submit(&self) -> bool {
+        false
     }
 }
 
