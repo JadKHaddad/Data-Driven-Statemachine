@@ -107,6 +107,7 @@ pub struct ContextState {
     pub next: OptionBoxDynIntoStateLike,
     pub contexts: VecBoxDynContextLike,
     pub submit: bool,
+    pub go_back: bool,
 }
 
 impl ContextState {
@@ -126,6 +127,7 @@ impl ContextState {
             next,
             contexts,
             submit,
+            go_back: false,
         }
     }
 }
@@ -195,6 +197,13 @@ impl StateLike for ContextState {
             output: String::new(),
         };
 
+        if self.go_back {
+            self.go_back = false;
+            status.state_changed = true;
+            status.state = self.get_parent();
+            return status;
+        }
+        
         //TODO duplicate
         if self.index >= self.contexts.len() {
             status.state_changed = true;
@@ -291,6 +300,7 @@ impl StateLike for ContextState {
 
     fn decrease_index(&mut self, amount: usize) {
         if amount > self.index {
+            self.go_back = true;
             self.index = 0;
         } else {
             self.index -= amount;

@@ -60,6 +60,11 @@ fn t() {
                     name: String::from("normal"),
                     value: String::new(),
                 }),
+                Box::new(StateOptionsContext {
+                    name: String::from("options"),
+                    value: String::new(),
+                    state: Box::new(state_for_valid_options.clone()),
+                }),
 
             ],
             false,
