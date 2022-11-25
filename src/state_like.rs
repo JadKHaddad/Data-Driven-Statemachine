@@ -1,5 +1,8 @@
 use crate::{
-    collection::Collection, context_like::StateContext, option_like::OptionLike, status::Status,
+    collection::Collection,
+    context_like::{StateContext, ContextLikeCollection},
+    option_like::OptionLike,
+    status::{InputStatus, OutputStatus},
     OptionBoxDynIntoStateLike, OptionRcRefCellDynStateLike, RcRefCellContextState,
     RcRefCellDynStateLike, RcRefCellOptionsState, VecBoxDynContextLike, VecBoxDynOptionLike,
 };
@@ -9,10 +12,11 @@ pub trait StateLike {
     fn get_name(&self) -> String;
     fn get_description(&self) -> String;
     fn get_parent(&self) -> OptionRcRefCellDynStateLike;
-    fn input(&mut self, input: String) -> Status;
-    fn output(&mut self) -> String;
-    fn back(&mut self) -> Status;
-    fn collect_contexts(&self) -> Vec<Collection>;
+    fn decrease_index(&mut self, amount: usize);
+    fn input(&mut self, input: String) -> InputStatus;
+    fn output(&mut self) -> OutputStatus;
+    fn back(&mut self) -> InputStatus;
+    fn collect_contexts(&mut self) -> Vec<Collection>;
 }
 
 pub trait IntoStateLike {
@@ -73,6 +77,7 @@ impl StateHolder {
 pub struct OptionsState {
     pub name: String,
     pub description: String,
+    pub index: usize,
     pub parent: OptionRcRefCellDynStateLike,
     pub options: VecBoxDynOptionLike,
 }
@@ -87,6 +92,7 @@ impl OptionsState {
         OptionsState {
             name,
             description,
+            index: 0,
             parent,
             options,
         }
@@ -96,7 +102,7 @@ impl OptionsState {
 pub struct ContextState {
     pub name: String,
     pub description: String,
-    pub index: u32,
+    pub index: usize,
     pub parent: OptionRcRefCellDynStateLike,
     pub next: OptionBoxDynIntoStateLike,
     pub contexts: VecBoxDynContextLike,
@@ -140,45 +146,32 @@ impl StateLike for ContextState {
         None
     }
 
-    fn input(&mut self, input: String) -> Status {
+    fn input(&mut self, input: String) -> InputStatus {
         dbg!(self.index);
         //submit will be true if all contexts are filled and the next state is not set
         //if the next state is set, then the submit will be the state's submit value
-        let mut status = Status {
+        let mut status = InputStatus {
             state_changed: false,
             state: None,
             submit: false,
             input_recognized: true,
         };
 
-
-
-        if let Some(context) = self.contexts.get_mut(self.index as usize) {
-            dbg!(context.get_name());
+        if let Some(context) = self.contexts.get_mut(self.index) {
             context.input(input);
-            
-            if let Some(context) = self.contexts.get_mut(self.index as usize + 1) {
-                let next_state = context.output();
-                if next_state.is_some() {
-                    dbg!("next state is some");
-                    status.state = next_state;
-                    status.state_changed = true;
-                }
-            }
         }
 
-        if self.index < self.contexts.len() as u32 {
+        if self.index < self.contexts.len() {
             dbg!("increasing index");
             self.index += 1;
         }
-
 
         if status.state.is_some() {
             dbg!("returning options");
             return status;
         }
 
-        if self.index >= self.contexts.len() as u32 {
+        if self.index >= self.contexts.len() {
             status.state_changed = true;
             status.submit = self.submit;
 
@@ -194,25 +187,64 @@ impl StateLike for ContextState {
         return status;
     }
 
-    fn output(&mut self) -> String {
-        // if let Some(context) = self.contexts.get_mut(self.index as usize) {
-        //     if let Some(state) = context.output() {
-        //         return state.borrow_mut().output();
-        //     }
-        // }
+    fn output(&mut self) -> OutputStatus {
+        let mut status = OutputStatus {
+            state_changed: false,
+            state: None,
+            submit: false,
+            output: String::new(),
+        };
+
+        //TODO duplicate
+        if self.index >= self.contexts.len() {
+            status.state_changed = true;
+            status.submit = self.submit;
+
+            if let Some(next) = &mut self.next {
+                dbg!("Next state");
+                status.state = next.into_state_like();
+            } else {
+                dbg!("No next state");
+                status.submit = true;
+            }
+            return status;
+        }
+
+        if let Some(context) = self.contexts.get_mut(self.index) {
+            let next_state = context.output();
+            if next_state.is_some() {
+                dbg!("next state is some");
+                if self.index < self.contexts.len() {
+                    dbg!("increasing index");
+                    self.index += 1;
+                }
+                return OutputStatus {
+                    state_changed: true,
+                    state: next_state,
+                    submit: false,
+                    output: String::new(),
+                };
+            }
+        }
+
         let mut output = format!("[{}]\n", self.name);
         //add description if index is 0
         if self.index == 0 {
             output.push_str(&format!("{}\n", self.description));
         }
-        if let Some(context) = self.contexts.get(self.index as usize) {
+        if let Some(context) = self.contexts.get(self.index) {
             output.push_str(&format!("{}\n", context.get_name()));
         }
-        output
+        OutputStatus {
+            state_changed: false,
+            state: None,
+            submit: false,
+            output,
+        }
     }
 
-    fn back(&mut self) -> Status {
-        let mut status = Status {
+    fn back(&mut self) -> InputStatus {
+        let mut status = InputStatus {
             state_changed: false,
             state: None,
             submit: false,
@@ -233,25 +265,37 @@ impl StateLike for ContextState {
         return status;
     }
     //VecBoxDynContextLike
-    fn collect_contexts(&self) -> Vec<Collection> {
-        let context_collections = self
-            .contexts
-            .iter()
-            .map(|context| context.collect())
-            .collect();
-
-        let collection = Collection {
+    fn collect_contexts(&mut self) -> Vec<Collection> {
+        let mut collections = vec![Collection {
             name: self.name.clone(),
-            context_collections,
-        };
+            context_collections: vec![]
+        }];
 
+        let mut contexts_collections: Vec<Vec<Collection>> = self
+            .contexts
+            .iter_mut()
+            .map(|context| context.collect()).collect();
+        
+        for context_collection in contexts_collections.iter_mut() {
+            collections.append(context_collection);
+        }
+        
         if let Some(parent) = &self.parent {
-            let mut parent_collections = parent.borrow().collect_contexts();
-            parent_collections.push(collection);
+            let mut parent_collections = parent.borrow_mut().collect_contexts();
+            parent_collections.append(&mut collections);
             return parent_collections;
         }
 
-        vec![collection]
+        collections
+    }
+
+    fn decrease_index(&mut self, amount: usize) {
+        if amount > self.index {
+            self.index = 0;
+        } else {
+            self.index -= amount;
+        }
+
     }
 }
 
@@ -271,15 +315,15 @@ impl StateLike for OptionsState {
         None
     }
 
-    fn input(&mut self, input: String) -> Status {
-        let mut status = Status {
+    fn input(&mut self, input: String) -> InputStatus {
+        let mut status = InputStatus {
             state_changed: false,
             state: None,
             submit: false,
             input_recognized: false,
         };
 
-        fn on_input_recognized(status: &mut Status, option: &mut Box<dyn OptionLike>) {
+        fn on_input_recognized(status: &mut InputStatus, option: &mut Box<dyn OptionLike>) {
             status.state_changed = true;
             status.state = option.get_state();
             status.submit = option.get_submit();
@@ -288,15 +332,18 @@ impl StateLike for OptionsState {
 
         if let Ok(input_as_u32) = input.parse::<u32>() {
             if input_as_u32 > 0 {
-                if let Some(option) = self.options.get_mut(input_as_u32 as usize - 1) {
+                let index = input_as_u32 as usize - 1;
+                if let Some(option) = self.options.get_mut(index) {
                     on_input_recognized(&mut status, option);
+                    self.index = index;
                     return status;
                 }
             }
         }
-        for option in self.options.iter_mut() {
+        for (index, option) in self.options.iter_mut().enumerate() {
             if option.input(&input) {
                 on_input_recognized(&mut status, option);
+                self.index = index;
                 return status;
             }
         }
@@ -304,34 +351,52 @@ impl StateLike for OptionsState {
         return status;
     }
 
-    fn output(&mut self) -> String {
+    fn output(&mut self) -> OutputStatus {
         let mut output = format!("[{}]\n", self.name);
         output.push_str(&format!("{}\n", self.description));
         for (index, option) in self.options.iter().enumerate() {
             output.push_str(&format!("{}. {}\n", index + 1, option.get_name()));
         }
-        output
+        OutputStatus {
+            output,
+            state_changed: false,
+            submit: false,
+            state: None,
+        }
     }
 
-    fn back(&mut self) -> Status {
-        let mut status = Status {
+    fn back(&mut self) -> InputStatus {
+        let mut status = InputStatus {
             state_changed: false,
             state: None,
             submit: false,
             input_recognized: true,
         };
-        if self.parent.is_some() {
+        if let Some(parent) = &self.parent {
             status.state_changed = true;
             status.state = self.parent.clone();
+            parent.borrow_mut().decrease_index(2);
         }
+
         return status;
     }
 
-    fn collect_contexts(&self) -> Vec<Collection> {
+    fn collect_contexts(&mut self) -> Vec<Collection> {
+        let context_like_collection = ContextLikeCollection::new(
+            self.name.clone(),
+            self.index.to_string()
+        );
+
         let collection = Collection {
             name: self.name.clone(),
-            context_collections: Vec::new(),
+            context_collections: vec![context_like_collection],
         };
         vec![collection]
+    }
+
+    fn decrease_index(&mut self, amount: usize) {
+        if self.index > 0 {
+            self.index -= amount;
+        }
     }
 }

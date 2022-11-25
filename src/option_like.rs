@@ -1,4 +1,4 @@
-use crate::{OptionRcRefCellDynStateLike, BoxDynIntoStateLike};
+use crate::{OptionRcRefCellDynStateLike, BoxDynIntoStateLike, context_like::ContextLikeCollection};
 
 //TODO: maybe obsolet. Might be replaced by a normal Option struct in the OptionsState struct
 pub trait OptionLike {

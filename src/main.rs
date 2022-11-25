@@ -3,7 +3,7 @@ use statemachine::{
     option_like::{OptionLike, StateOption},
     serde_state_like::*,
     state_like::{ContextState, OptionsState, StateHolder, StateLike},
-    status::Status,
+    status::{InputStatus, OutputStatus},
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -36,14 +36,11 @@ fn t() {
             vec![],
         )));
 
-
-
-
         //create valid options state
         let state_for_valid_options = Rc::new(RefCell::new(OptionsState::new(
             String::from("valid options"),
             String::from("valid options"),
-            Some(root.clone()),
+            None,
             vec![],
         )));
 
@@ -54,24 +51,34 @@ fn t() {
             Some(root.clone()),
             None,
             vec![
-                Box::new(StateContext {
-                    name: String::from("normal"),
-                    value: String::new(),
-                }),
                 Box::new(StateOptionsContext {
                     name: String::from("options"),
                     value: String::new(),
                     state: Box::new(state_for_valid_options.clone()),
-                })
+                }),
+                Box::new(StateContext {
+                    name: String::from("normal"),
+                    value: String::new(),
+                }),
+
             ],
             false,
         )));
 
+        state_for_valid_options.borrow_mut().parent = Some(context_state.clone());
 
         //create the valid options
-        let option1 = StateOption::new(String::from("Telekom"), Box::new(context_state.clone()), false);
-        let option2 = StateOption::new(String::from("Vodafone"), Box::new(context_state.clone()), false);
-        
+        let option1 = StateOption::new(
+            String::from("Telekom"),
+            Box::new(context_state.clone()),
+            false,
+        );
+        let option2 = StateOption::new(
+            String::from("Vodafone"),
+            Box::new(context_state.clone()),
+            false,
+        );
+
         //create an context state with only one context
         let state_for_context = Rc::new(RefCell::new(ContextState::new(
             String::from("others"),
@@ -85,14 +92,14 @@ fn t() {
             false,
         )));
 
-        let option3 = StateOption::new(String::from("others"), Box::new(state_for_context.clone()), false);
-        let options: Vec<Box<dyn OptionLike>> = vec![
-            Box::new(option1),
-            Box::new(option2),
-            Box::new(option3),
-        ];
+        let option3 = StateOption::new(
+            String::from("others"),
+            Box::new(state_for_context.clone()),
+            false,
+        );
+        let options: Vec<Box<dyn OptionLike>> =
+            vec![Box::new(option1), Box::new(option2), Box::new(option3)];
         state_for_valid_options.borrow_mut().options = options;
-
 
         //create options
         let option1 = StateOption::new(String::from("option1"), Box::new(child1.clone()), false);
@@ -138,10 +145,37 @@ fn t() {
 
     let mut current_state: Rc<RefCell<dyn StateLike>> = root.clone();
     loop {
-        let status: Status;
+        let output_status: OutputStatus;
+        let input_status: InputStatus;
         {
+            {
+                let mut current_state_ref = current_state.borrow_mut();
+                output_status = current_state_ref.output();
+                println!("{}", output_status);
+                println!("------------");
+            }
+
+            if output_status.state_changed {
+                if let Some(state) = output_status.state {
+                    current_state = state;
+                    continue;
+                }
+                if output_status.submit {
+                    println!("submitting\n");
+                    let collections = current_state.borrow_mut().collect_contexts();
+                    for collection in collections {
+                        println!("{}:", collection.name);
+                        for context in collection.context_collections {
+                            println!("{}: {}", context.name, context.value);
+                        }
+                    }
+                    break;
+                }
+            }
+
+            println!("{}", output_status.output);
+
             let mut current_state_ref = current_state.borrow_mut();
-            println!("{}", current_state_ref.output());
 
             let mut input = String::new();
             std::io::stdin()
@@ -154,22 +188,22 @@ fn t() {
                 input.pop();
             }
             if input == "back" {
-                status = current_state_ref.back();
+                input_status = current_state_ref.back();
             } else {
-                status = current_state_ref.input(input);
+                input_status = current_state_ref.input(input);
             }
             //println!("------------");
             //println!("{}", status);
             println!("------------");
         }
 
-        if status.state_changed {
-            if let Some(state) = status.state {
+        if input_status.state_changed {
+            if let Some(state) = input_status.state {
                 current_state = state;
             }
-            if status.submit {
+            if input_status.submit {
                 println!("submitting\n");
-                let collections = current_state.borrow().collect_contexts();
+                let collections = current_state.borrow_mut().collect_contexts();
                 for collection in collections {
                     println!("{}:", collection.name);
                     for context in collection.context_collections {
