@@ -1,6 +1,6 @@
 use crate::{
     collection::Collection,
-    context_like::{StateContext, ContextLikeCollection},
+    context_like::ContextLikeCollection,
     option_like::OptionLike,
     status::{InputStatus, OutputStatus},
     OptionBoxDynIntoStateLike, OptionRcRefCellDynStateLike, RcRefCellContextState,
@@ -203,7 +203,7 @@ impl StateLike for ContextState {
             status.state = self.get_parent();
             return status;
         }
-        
+
         //TODO duplicate
         if self.index >= self.contexts.len() {
             status.state_changed = true;
@@ -277,18 +277,19 @@ impl StateLike for ContextState {
     fn collect_contexts(&mut self) -> Vec<Collection> {
         let mut collections = vec![Collection {
             name: self.name.clone(),
-            context_collections: vec![]
+            context_collections: vec![],
         }];
 
         let mut contexts_collections: Vec<Vec<Collection>> = self
             .contexts
             .iter_mut()
-            .map(|context| context.collect()).collect();
-        
+            .map(|context| context.collect())
+            .collect();
+
         for context_collection in contexts_collections.iter_mut() {
             collections.append(context_collection);
         }
-        
+
         if let Some(parent) = &self.parent {
             let mut parent_collections = parent.borrow_mut().collect_contexts();
             parent_collections.append(&mut collections);
@@ -298,6 +299,7 @@ impl StateLike for ContextState {
         collections
     }
 
+    //called from an OptionsState that has been created through a Context
     fn decrease_index(&mut self, amount: usize) {
         if amount > self.index {
             self.go_back = true;
@@ -305,7 +307,6 @@ impl StateLike for ContextState {
         } else {
             self.index -= amount;
         }
-
     }
 }
 
@@ -392,10 +393,8 @@ impl StateLike for OptionsState {
     }
 
     fn collect_contexts(&mut self) -> Vec<Collection> {
-        let context_like_collection = ContextLikeCollection::new(
-            self.name.clone(),
-            self.index.to_string()
-        );
+        let context_like_collection =
+            ContextLikeCollection::new(self.name.clone(), self.index.to_string());
 
         let collection = Collection {
             name: self.name.clone(),
@@ -404,9 +403,7 @@ impl StateLike for OptionsState {
         vec![collection]
     }
 
-    fn decrease_index(&mut self, amount: usize) {
-        if self.index > 0 {
-            self.index -= amount;
-        }
+    fn decrease_index(&mut self, _amount: usize) {
+        unreachable!();
     }
 }
