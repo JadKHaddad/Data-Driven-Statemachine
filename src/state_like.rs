@@ -151,12 +151,19 @@ impl StateLike for ContextState {
             input_recognized: true,
         };
 
+
+
         if let Some(context) = self.contexts.get_mut(self.index as usize) {
-            let next_state = context.input(input);
-            if next_state.is_some() {
-                dbg!("next state is some");
-                status.state = next_state;
-                status.state_changed = true;
+            dbg!(context.get_name());
+            context.input(input);
+            
+            if let Some(context) = self.contexts.get_mut(self.index as usize + 1) {
+                let next_state = context.output();
+                if next_state.is_some() {
+                    dbg!("next state is some");
+                    status.state = next_state;
+                    status.state_changed = true;
+                }
             }
         }
 
@@ -164,6 +171,7 @@ impl StateLike for ContextState {
             dbg!("increasing index");
             self.index += 1;
         }
+
 
         if status.state.is_some() {
             dbg!("returning options");
