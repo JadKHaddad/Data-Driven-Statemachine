@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
+use context_like::ContextLike;
 use option_like::OptionLike;
 use state_like::ContextState;
 use state_like::IntoStateLike;
@@ -21,6 +22,10 @@ pub type OptionBoxDynIntoStateLike = Option<BoxDynIntoStateLike>;
 pub type BoxDynOptionLike = Box<dyn OptionLike>;
 pub type VecBoxDynOptionLike = Vec<BoxDynOptionLike>;
 pub type OptionVecBoxDynOptionLike = Option<VecBoxDynOptionLike>;
+
+pub type BoxDynContextLike = Box<dyn ContextLike>;
+pub type VecBoxDynContextLike = Vec<BoxDynContextLike>;
+pub type OptionVecBoxDynContextLike = Option<VecBoxDynContextLike>;
 
 pub mod collection;
 pub mod context_like;

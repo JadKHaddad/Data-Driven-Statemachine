@@ -6,7 +6,7 @@ use crate::{
     context_like::StateContext,
     option_like::StateOption,
     state_like::{ContextState, OptionsState},
-    BoxDynIntoStateLike, BoxDynOptionLike, OptionRcRefCellDynStateLike, RcRefCellDynStateLike,
+    BoxDynIntoStateLike, BoxDynOptionLike, OptionRcRefCellDynStateLike, RcRefCellDynStateLike, VecBoxDynContextLike, BoxDynContextLike,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -20,8 +20,8 @@ impl SerDeState {
     pub fn into_state_like(self, parent: OptionRcRefCellDynStateLike) -> RcRefCellDynStateLike {
         let state: RcRefCellDynStateLike = match self.r#type {
             StateType::Context(contexts, next, submit) => {
-                let contexts: Vec<StateContext> =
-                    contexts.into_iter().map(|x| x.into_context()).collect();
+                let contexts =
+                    contexts.into_iter().map(|x| x.into_context_like()).collect();
                 let state = Rc::new(RefCell::new(ContextState::new(
                     self.name,
                     self.description,
@@ -61,11 +61,11 @@ pub struct SerDeContext {
 }
 
 impl SerDeContext {
-    pub fn into_context(self) -> StateContext {
-        StateContext {
+    pub fn into_context_like(self) -> BoxDynContextLike { 
+        Box::new(StateContext {
             name: self.name,
             value: String::new(),
-        }
+        })
     }
 }
 

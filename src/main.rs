@@ -1,5 +1,5 @@
 use statemachine::{
-    context_like::StateContext,
+    context_like::{StateContext, StateOptionsContext},
     option_like::{OptionLike, StateOption},
     serde_state_like::*,
     state_like::{ContextState, OptionsState, StateHolder, StateLike},
@@ -36,6 +36,17 @@ fn t() {
             vec![],
         )));
 
+
+
+
+        //create valid options state
+        let state_for_valid_options = Rc::new(RefCell::new(OptionsState::new(
+            String::from("valid options"),
+            String::from("valid options"),
+            Some(root.clone()),
+            vec![],
+        )));
+
         //create a context state
         let context_state = Rc::new(RefCell::new(ContextState::new(
             String::from("context_state"),
@@ -43,21 +54,45 @@ fn t() {
             Some(root.clone()),
             None,
             vec![
-                StateContext {
-                    name: String::from("context1"),
+                Box::new(StateContext {
+                    name: String::from("normal"),
                     value: String::new(),
-                },
-                StateContext {
-                    name: String::from("context2"),
+                }),
+                Box::new(StateOptionsContext {
+                    name: String::from("options"),
                     value: String::new(),
-                },
-                StateContext {
-                    name: String::from("context3"),
-                    value: String::new(),
-                },
+                    state: Box::new(state_for_valid_options.clone()),
+                })
             ],
             false,
         )));
+
+
+        //create the valid options
+        let option1 = StateOption::new(String::from("Telekom"), Box::new(context_state.clone()), false);
+        let option2 = StateOption::new(String::from("Vodafone"), Box::new(context_state.clone()), false);
+        
+        //create an context state with only one context
+        let state_for_context = Rc::new(RefCell::new(ContextState::new(
+            String::from("others"),
+            String::from("others"),
+            Some(state_for_valid_options.clone()),
+            Some(Box::new(context_state.clone())),
+            vec![Box::new(StateContext {
+                name: String::from("so tell me what you want"),
+                value: String::new(),
+            })],
+            false,
+        )));
+
+        let option3 = StateOption::new(String::from("others"), Box::new(state_for_context.clone()), false);
+        let options: Vec<Box<dyn OptionLike>> = vec![
+            Box::new(option1),
+            Box::new(option2),
+            Box::new(option3),
+        ];
+        state_for_valid_options.borrow_mut().options = options;
+
 
         //create options
         let option1 = StateOption::new(String::from("option1"), Box::new(child1.clone()), false);
@@ -123,8 +158,8 @@ fn t() {
             } else {
                 status = current_state_ref.input(input);
             }
-            println!("------------");
-            println!("{}", status);
+            //println!("------------");
+            //println!("{}", status);
             println!("------------");
         }
 
@@ -137,7 +172,7 @@ fn t() {
                 let collections = current_state.borrow().collect_contexts();
                 for collection in collections {
                     println!("{}:", collection.name);
-                    for context in collection.contexts {
+                    for context in collection.context_collections {
                         println!("{}: {}", context.name, context.value);
                     }
                 }

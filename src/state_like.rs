@@ -1,7 +1,7 @@
 use crate::{
     collection::Collection, context_like::StateContext, option_like::OptionLike, status::Status,
-    OptionRcRefCellDynStateLike, RcRefCellContextState, RcRefCellDynStateLike,
-    RcRefCellOptionsState, VecBoxDynOptionLike, OptionBoxDynIntoStateLike,
+    OptionBoxDynIntoStateLike, OptionRcRefCellDynStateLike, RcRefCellContextState,
+    RcRefCellDynStateLike, RcRefCellOptionsState, VecBoxDynContextLike, VecBoxDynOptionLike,
 };
 use std::rc::Rc;
 
@@ -10,7 +10,7 @@ pub trait StateLike {
     fn get_description(&self) -> String;
     fn get_parent(&self) -> OptionRcRefCellDynStateLike;
     fn input(&mut self, input: String) -> Status;
-    fn output(&self) -> String;
+    fn output(&mut self) -> String;
     fn back(&mut self) -> Status;
     fn collect_contexts(&self) -> Vec<Collection>;
 }
@@ -56,7 +56,10 @@ pub struct StateHolder {
 }
 
 impl StateHolder {
-    pub fn new(closure_state: impl Fn() -> RcRefCellDynStateLike + 'static, lazy: bool) -> StateHolder {
+    pub fn new(
+        closure_state: impl Fn() -> RcRefCellDynStateLike + 'static,
+        lazy: bool,
+    ) -> StateHolder {
         let mut state_holder = StateHolder {
             closure_state: Box::new(closure_state),
             state: None,
@@ -96,7 +99,7 @@ pub struct ContextState {
     pub index: u32,
     pub parent: OptionRcRefCellDynStateLike,
     pub next: OptionBoxDynIntoStateLike,
-    pub contexts: Vec<StateContext>,
+    pub contexts: VecBoxDynContextLike,
     pub submit: bool,
 }
 
@@ -106,7 +109,7 @@ impl ContextState {
         description: String,
         parent: OptionRcRefCellDynStateLike,
         next: OptionBoxDynIntoStateLike,
-        contexts: Vec<StateContext>,
+        contexts: VecBoxDynContextLike,
         submit: bool,
     ) -> ContextState {
         ContextState {
@@ -138,6 +141,7 @@ impl StateLike for ContextState {
     }
 
     fn input(&mut self, input: String) -> Status {
+        dbg!(self.index);
         //submit will be true if all contexts are filled and the next state is not set
         //if the next state is set, then the submit will be the state's submit value
         let mut status = Status {
@@ -147,15 +151,26 @@ impl StateLike for ContextState {
             input_recognized: true,
         };
 
-        if let Some(mut context) = self.contexts.get_mut(self.index as usize) {
-            context.value = input;
+        if let Some(context) = self.contexts.get_mut(self.index as usize) {
+            let next_state = context.input(input);
+            if next_state.is_some() {
+                dbg!("next state is some");
+                status.state = next_state;
+                status.state_changed = true;
+            }
         }
 
         if self.index < self.contexts.len() as u32 {
+            dbg!("increasing index");
             self.index += 1;
         }
 
-        if self.index == self.contexts.len() as u32 {
+        if status.state.is_some() {
+            dbg!("returning options");
+            return status;
+        }
+
+        if self.index >= self.contexts.len() as u32 {
             status.state_changed = true;
             status.submit = self.submit;
 
@@ -171,14 +186,19 @@ impl StateLike for ContextState {
         return status;
     }
 
-    fn output(&self) -> String {
+    fn output(&mut self) -> String {
+        // if let Some(context) = self.contexts.get_mut(self.index as usize) {
+        //     if let Some(state) = context.output() {
+        //         return state.borrow_mut().output();
+        //     }
+        // }
         let mut output = format!("[{}]\n", self.name);
         //add description if index is 0
         if self.index == 0 {
             output.push_str(&format!("{}\n", self.description));
         }
         if let Some(context) = self.contexts.get(self.index as usize) {
-            output.push_str(&format!("{}\n", context.name));
+            output.push_str(&format!("{}\n", context.get_name()));
         }
         output
     }
@@ -204,11 +224,17 @@ impl StateLike for ContextState {
 
         return status;
     }
-
+    //VecBoxDynContextLike
     fn collect_contexts(&self) -> Vec<Collection> {
+        let context_collections = self
+            .contexts
+            .iter()
+            .map(|context| context.collect())
+            .collect();
+
         let collection = Collection {
             name: self.name.clone(),
-            contexts: self.contexts.clone(),
+            context_collections,
         };
 
         if let Some(parent) = &self.parent {
@@ -270,7 +296,7 @@ impl StateLike for OptionsState {
         return status;
     }
 
-    fn output(&self) -> String {
+    fn output(&mut self) -> String {
         let mut output = format!("[{}]\n", self.name);
         output.push_str(&format!("{}\n", self.description));
         for (index, option) in self.options.iter().enumerate() {
@@ -296,7 +322,7 @@ impl StateLike for OptionsState {
     fn collect_contexts(&self) -> Vec<Collection> {
         let collection = Collection {
             name: self.name.clone(),
-            contexts: Vec::new(),
+            context_collections: Vec::new(),
         };
         vec![collection]
     }

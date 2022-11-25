@@ -1,12 +1,12 @@
-use crate::context_like::StateContext;
+use crate::{context_like::ContextLikeCollection};
 
 pub struct Collection {
     pub name: String,
-    pub contexts: Vec<StateContext>,
+    pub context_collections: Vec<ContextLikeCollection>,
 }
 
 impl Collection {
-    pub fn new(name: String, contexts: Vec<StateContext>) -> Collection {
-        Collection { name, contexts }
+    pub fn new(name: String, context_collections:  Vec<ContextLikeCollection>) -> Collection {
+        Collection { name, context_collections }
     }
 }
