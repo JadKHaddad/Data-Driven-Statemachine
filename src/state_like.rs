@@ -2,7 +2,7 @@ use crate::{
     collection::Collection,
     context_like::ContextLikeCollection,
     option_like::OptionLike,
-    status::{InputStatus, OutputStatus},
+    status::{InputStatus, OutputStatus, StatusLike},
     OptionBoxDynIntoStateLike, OptionRcRefCellDynStateLike, RcRefCellContextState,
     RcRefCellDynStateLike, RcRefCellOptionsState, VecBoxDynContextLike, VecBoxDynOptionLike,
 };
@@ -130,6 +130,19 @@ impl ContextState {
             go_back: false,
         }
     }
+
+    fn on_highest_index(&mut self, status: &mut impl StatusLike) {
+        status.set_state_changed(true);
+        status.set_submit(self.submit);
+
+        if let Some(next) = &mut self.next {
+            dbg!("Next state");
+            status.set_state(next.into_state_like());
+        } else {
+            dbg!("No next state");
+            status.set_submit(true);
+        }
+    }
 }
 
 impl StateLike for ContextState {
@@ -149,7 +162,6 @@ impl StateLike for ContextState {
     }
 
     fn input(&mut self, input: String) -> InputStatus {
-        dbg!(self.index);
         //submit will be true if all contexts are filled and the next state is not set
         //if the next state is set, then the submit will be the state's submit value
         let mut status = InputStatus {
@@ -164,26 +176,15 @@ impl StateLike for ContextState {
         }
 
         if self.index < self.contexts.len() {
-            dbg!("increasing index");
             self.index += 1;
         }
 
         if status.state.is_some() {
-            dbg!("returning options");
             return status;
         }
 
         if self.index >= self.contexts.len() {
-            status.state_changed = true;
-            status.submit = self.submit;
-
-            if let Some(next) = &mut self.next {
-                dbg!("Next state");
-                status.state = next.into_state_like();
-            } else {
-                dbg!("No next state");
-                status.submit = true;
-            }
+            self.on_highest_index(&mut status);
         }
 
         return status;
@@ -204,27 +205,16 @@ impl StateLike for ContextState {
             return status;
         }
 
-        //TODO duplicate
         if self.index >= self.contexts.len() {
-            status.state_changed = true;
-            status.submit = self.submit;
-
-            if let Some(next) = &mut self.next {
-                dbg!("Next state");
-                status.state = next.into_state_like();
-            } else {
-                dbg!("No next state");
-                status.submit = true;
-            }
+            self.on_highest_index(&mut status);
             return status;
         }
 
+        //this means that the current context is an option
         if let Some(context) = self.contexts.get_mut(self.index) {
             let next_state = context.output();
             if next_state.is_some() {
-                dbg!("next state is some");
                 if self.index < self.contexts.len() {
-                    dbg!("increasing index");
                     self.index += 1;
                 }
                 return OutputStatus {
@@ -236,7 +226,9 @@ impl StateLike for ContextState {
             }
         }
 
+        //normal output for contexts
         let mut output = format!("[{}]\n", self.name);
+
         //add description if index is 0
         if self.index == 0 {
             output.push_str(&format!("{}\n", self.description));

@@ -1,10 +1,28 @@
 use crate::OptionRcRefCellDynStateLike;
 
+pub trait StatusLike {
+    fn set_state_changed(&mut self, state_changed: bool);
+    fn set_state(&mut self, state: OptionRcRefCellDynStateLike);
+    fn set_submit(&mut self, submit: bool);
+}
+
 pub struct InputStatus {
     pub state_changed: bool,
     pub state: OptionRcRefCellDynStateLike,
     pub submit: bool,
     pub input_recognized: bool,
+}
+
+impl StatusLike for InputStatus {
+    fn set_state_changed(&mut self, state_changed: bool) {
+        self.state_changed = state_changed;
+    }
+    fn set_state(&mut self, state: OptionRcRefCellDynStateLike) {
+        self.state = state;
+    }
+    fn set_submit(&mut self, submit: bool) {
+        self.submit = submit;
+    }
 }
 
 impl std::fmt::Display for InputStatus {
@@ -28,6 +46,18 @@ pub struct OutputStatus {
     pub state: OptionRcRefCellDynStateLike,
     pub submit: bool,
     pub output: String,
+}
+
+impl StatusLike for OutputStatus {
+    fn set_state_changed(&mut self, state_changed: bool) {
+        self.state_changed = state_changed;
+    }
+    fn set_state(&mut self, state: OptionRcRefCellDynStateLike) {
+        self.state = state;
+    }
+    fn set_submit(&mut self, submit: bool) {
+        self.submit = submit;
+    }
 }
 
 impl std::fmt::Display for OutputStatus {
