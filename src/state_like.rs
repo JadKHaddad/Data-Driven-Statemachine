@@ -1,6 +1,5 @@
 use crate::{
-    collection::Collection,
-    context_like::ContextLikeCollection,
+    collection::{Collection, ContextLikeCollection},
     option_like::OptionLike,
     status::{InputStatus, OutputStatus, StatusLike},
     OptionBoxDynIntoStateLike, OptionRcRefCellDynStateLike, RcRefCellContextState,
@@ -11,11 +10,14 @@ pub trait StateLike {
     fn get_name(&self) -> String;
     fn get_description(&self) -> String;
     fn get_parent(&self) -> OptionRcRefCellDynStateLike;
+    fn get_index(&self) -> usize;
+    fn get_options(&mut self) -> Option<&mut VecBoxDynOptionLike>;
+    fn get_contexts(&mut self) -> Option<&mut VecBoxDynContextLike>;
     fn decrease_index(&mut self, amount: usize);
     fn input(&mut self, input: String) -> InputStatus;
     fn output(&mut self) -> OutputStatus;
     fn back(&mut self) -> InputStatus;
-    fn collect_contexts(&mut self) -> Vec<Collection>;
+    fn collect(&mut self) -> Vec<Collection>;
 }
 
 pub trait IntoStateLike {
@@ -157,6 +159,18 @@ impl StateLike for ContextState {
         self.parent.clone()
     }
 
+    fn get_index(&self) -> usize {
+        self.index
+    }
+
+    fn get_options(&mut self) -> Option<&mut VecBoxDynOptionLike> {
+        None
+    }
+
+    fn get_contexts(&mut self) -> Option<&mut VecBoxDynContextLike> {
+        Some(&mut self.contexts)
+    }
+
     fn input(&mut self, input: String) -> InputStatus {
         //submit will be true if all contexts are filled and the next state is not set
         //if the next state is set, then the submit will be the state's submit value
@@ -258,29 +272,23 @@ impl StateLike for ContextState {
         return status;
     }
 
-    fn collect_contexts(&mut self) -> Vec<Collection> {
-        let mut collections = vec![Collection {
-            name: self.name.clone(),
-            context_collections: vec![],
-        }];
-
-        let mut contexts_collections: Vec<Vec<Collection>> = self
-            .contexts
-            .iter_mut()
-            .map(|context| context.collect())
-            .collect();
-
-        for context_collection in contexts_collections.iter_mut() {
-            collections.append(context_collection);
-        }
+    fn collect(&mut self) -> Vec<Collection> {
+        let collection = Collection {
+            state_name: self.get_name(),
+            context_collections: self
+                .contexts
+                .iter_mut()
+                .map(|context| context.collect())
+                .collect(),
+        };
 
         if let Some(parent) = &self.parent {
-            let mut parent_collections = parent.borrow_mut().collect_contexts();
-            parent_collections.append(&mut collections);
+            let mut parent_collections = parent.borrow_mut().collect();
+            parent_collections.push(collection);
             return parent_collections;
         }
 
-        collections
+        vec![collection]
     }
 
     //called from an OptionsState that has been created through a Context
@@ -305,6 +313,18 @@ impl StateLike for OptionsState {
 
     fn get_parent(&self) -> OptionRcRefCellDynStateLike {
         self.parent.clone()
+    }
+
+    fn get_index(&self) -> usize {
+        self.index
+    }
+
+    fn get_options(&mut self) -> Option<&mut VecBoxDynOptionLike> {
+        Some(&mut self.options)
+    }
+
+    fn get_contexts(&mut self) -> Option<&mut VecBoxDynContextLike> {
+        None
     }
 
     fn input(&mut self, input: String) -> InputStatus {
@@ -373,14 +393,23 @@ impl StateLike for OptionsState {
         return status;
     }
 
-    fn collect_contexts(&mut self) -> Vec<Collection> {
+    fn collect(&mut self) -> Vec<Collection> {
         let context_like_collection =
             ContextLikeCollection::new(self.name.clone(), self.index.to_string());
 
-        let collection = Collection {
-            name: self.name.clone(),
+        let mut collection = Collection {
+            state_name: "None".to_string(),
             context_collections: vec![context_like_collection],
         };
+
+        if let Some(parent) = &self.parent {
+            let mut parent_mute = parent.borrow_mut();
+            collection.state_name = parent_mute.get_name();
+            let mut parent_collections = parent_mute.collect();
+            parent_collections.push(collection);
+            return parent_collections;
+        }
+
         vec![collection]
     }
 

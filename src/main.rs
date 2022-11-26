@@ -51,11 +51,6 @@ fn t() {
             Some(root.clone()),
             None,
             vec![
-                Box::new(StateOptionsContext {
-                    name: String::from("options"),
-                    value: String::new(),
-                    state: Box::new(state_for_valid_options.clone()),
-                }),
                 Box::new(StateContext {
                     name: String::from("normal"),
                     value: String::new(),
@@ -167,12 +162,14 @@ fn t() {
                 }
                 if output_status.submit {
                     println!("submitting\n");
-                    let collections = current_state.borrow_mut().collect_contexts();
+                    let collections = current_state.borrow_mut().collect();
+                    println!("{:?}", collections);
                     for collection in collections {
-                        println!("{}:", collection.name);
+                        println!("{}:", collection.state_name);
                         for context in collection.context_collections {
                             println!("{}: {}", context.name, context.value);
                         }
+                        println!("------------");
                     }
                     break;
                 }
@@ -208,13 +205,17 @@ fn t() {
             }
             if input_status.submit {
                 println!("submitting\n");
-                let collections = current_state.borrow_mut().collect_contexts();
-                for collection in collections {
-                    println!("{}:", collection.name);
-                    for context in collection.context_collections {
-                        println!("{}: {}", context.name, context.value);
-                    }
-                }
+                let collections = current_state.borrow_mut().collect();
+                println!("{:?}", collections);
+                println!("hahahahahah");
+                // for collection in collections {
+
+                //     println!("{}:", collection.state_name);
+                //     for context in collection.context_collections {
+                //         println!("{}: {}", context.name, context.value);
+                //     }
+                //     println!("------------");
+                // }
                 break;
             }
         }

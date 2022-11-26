@@ -1,15 +1,7 @@
-use crate::{BoxDynIntoStateLike, OptionRcRefCellDynStateLike, collection::Collection};
-
-pub struct ContextLikeCollection {
-    pub name: String,
-    pub value: String,
-}
-
-impl ContextLikeCollection {
-    pub fn new(name: String, value: String) -> ContextLikeCollection {
-        ContextLikeCollection { name, value }
-    }
-}
+use crate::{
+    collection::{Collection, ContextLikeCollection},
+    BoxDynIntoStateLike, OptionRcRefCellDynStateLike,
+};
 
 //TODO use dyn contextLike instead of StateContext
 pub trait ContextLike {
@@ -17,7 +9,7 @@ pub trait ContextLike {
     fn output(&mut self) -> OptionRcRefCellDynStateLike;
     fn get_name(&self) -> String;
     fn get_value(&self) -> String;
-    fn collect(&mut self) -> Vec<Collection>;
+    fn collect(&mut self) -> ContextLikeCollection;
 }
 
 #[derive(Clone)]
@@ -33,11 +25,11 @@ impl StateContext {
 }
 
 impl ContextLike for StateContext {
-    fn input(&mut self, input: String){
+    fn input(&mut self, input: String) {
         self.value = input;
     }
 
-    fn output (&mut self) -> OptionRcRefCellDynStateLike {
+    fn output(&mut self) -> OptionRcRefCellDynStateLike {
         None
     }
 
@@ -49,8 +41,8 @@ impl ContextLike for StateContext {
         self.value.clone()
     }
 
-    fn collect(&mut self) -> Vec<Collection> {
-        vec![Collection::new(self.name.clone(), vec![ContextLikeCollection::new(self.name.clone(), self.value.clone())])]
+    fn collect(&mut self) -> ContextLikeCollection {
+        ContextLikeCollection::new(self.name.clone(), self.value.clone())
     }
 }
 
@@ -76,7 +68,7 @@ impl ContextLike for StateOptionsContext {
         self.value = input;
     }
 
-    fn output (&mut self) -> OptionRcRefCellDynStateLike {
+    fn output(&mut self) -> OptionRcRefCellDynStateLike {
         self.state.into_state_like()
     }
 
@@ -88,14 +80,33 @@ impl ContextLike for StateOptionsContext {
         self.value.clone()
     }
 
-    fn collect(&mut self) -> Vec<Collection> {
-        let collection = Collection::new(self.name.clone(), vec![ContextLikeCollection::new(self.name.clone(), self.value.clone())]);
+    fn collect(&mut self) -> ContextLikeCollection {
         if let Some(state) = self.state.into_state_like() {
-            let mut collections = state.borrow_mut().collect_contexts();
-            collections.push(collection);
-            return collections;
+            let mut state = state.borrow_mut();
+            let index = state.get_index();
+            let options = state.get_options();
+            if let Some(options) = options {
+                let len = options.len();
+                if let Some(option) = options.get_mut(index) {
+                    if index == len - 1 {
+                        let in_state = option.get_state();
+                        if let Some(in_state) = in_state {
+                            let mut in_state = in_state.borrow_mut();
+                            let contexts = in_state.get_contexts();
+                            if let Some(contexts) = contexts {
+                                let context = contexts.get_mut(0);
+                                if let Some(context) = context {
+                                    return context.collect();
+                                    //TODO
+                                }
+                            }
+                        }
+                    }
+                    return ContextLikeCollection::new(self.name.clone(), option.get_name());
+                }
+            }
         }
-        //let collections = self.state.into_state_like().borrow_mut().collect().context_collections();
-        vec![collection]
+        //something went wrong
+        ContextLikeCollection::new(self.name.clone(), self.value.clone())
     }
 }
