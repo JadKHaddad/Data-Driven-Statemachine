@@ -6,7 +6,6 @@ use crate::{
     OptionBoxDynIntoStateLike, OptionRcRefCellDynStateLike, RcRefCellContextState,
     RcRefCellDynStateLike, RcRefCellOptionsState, VecBoxDynContextLike, VecBoxDynOptionLike,
 };
-use std::rc::Rc;
 
 pub trait StateLike {
     fn get_name(&self) -> String;
@@ -155,10 +154,7 @@ impl StateLike for ContextState {
     }
 
     fn get_parent(&self) -> OptionRcRefCellDynStateLike {
-        if let Some(parent) = &self.parent {
-            return Some(Rc::clone(&parent));
-        }
-        None
+        self.parent.clone()
     }
 
     fn input(&mut self, input: String) -> InputStatus {
@@ -177,10 +173,6 @@ impl StateLike for ContextState {
 
         if self.index < self.contexts.len() {
             self.index += 1;
-        }
-
-        if status.state.is_some() {
-            return status;
         }
 
         if self.index >= self.contexts.len() {
@@ -265,7 +257,7 @@ impl StateLike for ContextState {
 
         return status;
     }
-    //VecBoxDynContextLike
+
     fn collect_contexts(&mut self) -> Vec<Collection> {
         let mut collections = vec![Collection {
             name: self.name.clone(),
@@ -312,10 +304,7 @@ impl StateLike for OptionsState {
     }
 
     fn get_parent(&self) -> OptionRcRefCellDynStateLike {
-        if let Some(parent) = &self.parent {
-            return Some(Rc::clone(&parent));
-        }
-        None
+        self.parent.clone()
     }
 
     fn input(&mut self, input: String) -> InputStatus {
