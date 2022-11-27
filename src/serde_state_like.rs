@@ -1,6 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
-
+use crate::error::Error as StateError;
 use serde::{Deserialize, Serialize};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     context_like::{StateContext, StateOptionsContext},
@@ -18,7 +18,10 @@ pub struct SerDeState {
 }
 
 impl SerDeState {
-    pub fn into_state_like(self, parent: OptionRcRefCellDynStateLike) -> RcRefCellDynStateLike {
+    pub fn into_state_like(
+        self,
+        parent: OptionRcRefCellDynStateLike,
+    ) -> Result<RcRefCellDynStateLike, StateError> {
         let state: RcRefCellDynStateLike = match self.r#type {
             StateType::Context(contexts, next, submit) => {
                 let state = Rc::new(RefCell::new(ContextState::new(
@@ -33,12 +36,12 @@ impl SerDeState {
                 let contexts: VecBoxDynContextLike = contexts
                     .into_iter()
                     .map(|x| x.into_context_like(Some(state.clone())))
-                    .collect();
+                    .collect::<Result<Vec<BoxDynContextLike>, StateError>>()?;
 
                 state.borrow_mut().contexts = contexts;
 
                 if let Some(next) = next {
-                    let next_state = next.into_into_state_like(Some(state.clone()));
+                    let next_state = next.into_into_state_like(Some(state.clone()))?;
                     state.borrow_mut().next = Some(next_state);
                 }
                 state
@@ -53,12 +56,12 @@ impl SerDeState {
                 let options: Vec<BoxDynOptionLike> = options
                     .into_iter()
                     .map(|x| x.into_option_like(Some(state.clone()), None))
-                    .collect();
+                    .collect::<Result<Vec<BoxDynOptionLike>, StateError>>()?;
                 state.borrow_mut().options = options;
                 state
             }
         };
-        state
+        Ok(state)
     }
 }
 
@@ -79,15 +82,15 @@ impl SerDeContext {
     pub fn into_context_like(
         self,
         parent_of_options_state: OptionRcRefCellDynStateLike,
-    ) -> BoxDynContextLike {
+    ) -> Result<BoxDynContextLike, StateError> {
         let value = self.value.unwrap_or_default();
 
         match self.r#type {
             ContextType::Normal => {
-                return Box::new(StateContext {
+                return Ok(Box::new(StateContext {
                     name: self.name,
                     value,
-                });
+                }));
             }
             ContextType::Options(options) => {
                 //crteate the valid options state
@@ -101,20 +104,20 @@ impl SerDeContext {
                 //create a context state with only one context
                 if let Some(some_parent_of_options_state) = parent_of_options_state.clone() {
                     let state_for_context = Rc::new(RefCell::new(ContextState::new(
-                        String::from("others"),
-                        String::from("others"),
+                        String::from("Other"),
+                        String::from("Other"),
                         Some(state_for_valid_options.clone()),
                         Some(Box::new(some_parent_of_options_state.clone())),
                         vec![Box::new(StateContext {
-                            name: String::from("so tell me what you want"),
+                            name: String::from("Other"),
                             value: String::new(),
                         })],
                         false,
                     )));
-                    
+
                     //create the option that holds the context state
                     let option = StateOption::new(
-                        String::from("others"),
+                        String::from("Others"),
                         Box::new(state_for_context.clone()),
                         false,
                     );
@@ -128,7 +131,7 @@ impl SerDeContext {
                                 parent_of_options_state.clone(),
                             )
                         })
-                        .collect();
+                        .collect::<Result<Vec<BoxDynOptionLike>, StateError>>()?;
 
                     //add the option that holds the context state
                     options.push(Box::new(option));
@@ -137,13 +140,13 @@ impl SerDeContext {
                     state_for_valid_options.borrow_mut().options = options;
 
                     //return the OptionsContext
-                    return Box::new(StateOptionsContext {
+                    return Ok(Box::new(StateOptionsContext {
                         name: self.name,
                         value,
                         state: Box::new(state_for_valid_options),
-                    });
+                    }));
                 }
-                unreachable!();
+                Err(StateError::BadConstruction)
             }
         }
     }
@@ -161,23 +164,22 @@ impl SerDeOption {
         self,
         parent: OptionRcRefCellDynStateLike,
         backup_state: OptionRcRefCellDynStateLike,
-    ) -> BoxDynOptionLike {
+    ) -> Result<BoxDynOptionLike, StateError> {
         let submit = self.submit.unwrap_or(false);
 
         if let Some(state) = self.state {
-            let state = state.into_into_state_like(parent);
-            return Box::new(StateOption::new(self.name, state, submit));
+            let state = state.into_into_state_like(parent)?;
+            return Ok(Box::new(StateOption::new(self.name, state, submit)));
         }
 
         if let Some(rc_refcell_state) = backup_state {
-            return Box::new(StateOption::new(
+            return Ok(Box::new(StateOption::new(
                 self.name,
                 Box::new(rc_refcell_state),
                 submit,
-            ));
+            )));
         }
-
-        unreachable!();
+        Err(StateError::BadConstruction)
     }
 }
 
@@ -188,9 +190,12 @@ pub enum SerDeIntoStateLike {
 }
 
 impl SerDeIntoStateLike {
-    pub fn into_into_state_like(self, parent: OptionRcRefCellDynStateLike) -> BoxDynIntoStateLike {
+    pub fn into_into_state_like(
+        self,
+        parent: OptionRcRefCellDynStateLike,
+    ) -> Result<BoxDynIntoStateLike, StateError> {
         match self {
-            SerDeIntoStateLike::Inline(state) => Box::new(state.into_state_like(parent)),
+            SerDeIntoStateLike::Inline(state) => Ok(Box::new(state.into_state_like(parent)?)),
             SerDeIntoStateLike::Path(path, lazy) => {
                 //stateholder
                 todo!();

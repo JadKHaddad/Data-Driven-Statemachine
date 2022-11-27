@@ -5,7 +5,7 @@ use statemachine::{
     state_like::{ContextState, OptionsState, StateHolder, StateLike},
     status::{InputStatus, OutputStatus},
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, fs::File, io::Read, rc::Rc};
 
 fn t() {
     let root = Rc::new(RefCell::new(OptionsState::new(
@@ -142,7 +142,9 @@ fn t() {
         //add options to root
         root.borrow_mut().options = options;
     }
+}
 
+fn run(root: Rc<RefCell<dyn StateLike>>) {
     let mut current_state: Rc<RefCell<dyn StateLike>> = root.clone();
     loop {
         let output_status: OutputStatus;
@@ -216,7 +218,11 @@ fn t() {
         }
     }
 }
-
 fn main() {
-    t();
+    let mut file = File::open("state.yaml").unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+    let state: SerDeState = serde_yaml::from_str(&contents).unwrap();
+    let state = state.into_state_like(None).unwrap();
+    run(state);
 }
