@@ -65,8 +65,10 @@ impl SerDeState {
         Ok(state)
     }
 
-    pub fn create(how_to_create: Box<dyn Fn(String) -> Result<SerDeState, Box<dyn StdError>>>, name: String) -> Result<Result<RcRefCellDynStateLike, StateError>, Box<dyn StdError>> {
-        Ok(how_to_create(name)?.into_state_like(None))
+    pub fn create(how_to_get_string: Box<dyn Fn(String) -> Result<String, Box<dyn StdError>>>, name: String) -> Result<Result<RcRefCellDynStateLike, StateError>, Box<dyn StdError>> {
+        let string = how_to_get_string(name)?;
+        let state: SerDeState = serde_yaml::from_str(&string)?; 
+        Ok(state.into_state_like(None))
     }
 }
 
