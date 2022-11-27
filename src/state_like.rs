@@ -394,23 +394,27 @@ impl StateLike for OptionsState {
     }
 
     fn collect(&mut self) -> Vec<Collection> {
-        let context_like_collection =
-            ContextLikeCollection::new(self.name.clone(), self.index.to_string());
+        if let Some(option) = self.options.get(self.index) {
+            let context_like_collection =
+                ContextLikeCollection::new(self.name.clone(), option.get_name());
 
-        let mut collection = Collection {
-            state_name: "None".to_string(),
-            context_collections: vec![context_like_collection],
-        };
+            let mut collection = Collection {
+                state_name: "None".to_string(),
+                context_collections: vec![context_like_collection],
+            };
 
-        if let Some(parent) = &self.parent {
-            let mut parent_mute = parent.borrow_mut();
-            collection.state_name = parent_mute.get_name();
-            let mut parent_collections = parent_mute.collect();
-            parent_collections.push(collection);
-            return parent_collections;
+            if let Some(parent) = &self.parent {
+                let mut parent_mute = parent.borrow_mut();
+                collection.state_name = parent_mute.get_name();
+                let mut parent_collections = parent_mute.collect();
+                parent_collections.push(collection);
+                return parent_collections;
+            }
+
+            return vec![collection];
         }
-
-        vec![collection]
+        //something went wrong
+        vec![]
     }
 
     fn decrease_index(&mut self, _amount: usize) {

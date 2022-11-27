@@ -60,7 +60,6 @@ fn t() {
                     value: String::new(),
                     state: Box::new(state_for_valid_options.clone()),
                 }),
-
             ],
             false,
         )));
@@ -163,13 +162,11 @@ fn t() {
                 if output_status.submit {
                     println!("submitting\n");
                     let collections = current_state.borrow_mut().collect();
-                    println!("{:?}", collections);
                     for collection in collections {
                         println!("{}:", collection.state_name);
                         for context in collection.context_collections {
                             println!("{}: {}", context.name, context.value);
                         }
-                        println!("------------");
                     }
                     break;
                 }
@@ -194,8 +191,8 @@ fn t() {
             } else {
                 input_status = current_state_ref.input(input);
             }
-            //println!("------------");
-            //println!("{}", status);
+            println!("------------");
+            println!("{}", input_status);
             println!("------------");
         }
 
@@ -207,15 +204,12 @@ fn t() {
                 println!("submitting\n");
                 let collections = current_state.borrow_mut().collect();
                 println!("{:?}", collections);
-                println!("hahahahahah");
-                // for collection in collections {
-
-                //     println!("{}:", collection.state_name);
-                //     for context in collection.context_collections {
-                //         println!("{}: {}", context.name, context.value);
-                //     }
-                //     println!("------------");
-                // }
+                for collection in collections {
+                    println!("{}:", collection.state_name);
+                    for context in collection.context_collections {
+                        println!("{}: {}", context.name, context.value);
+                    }
+                }
                 break;
             }
         }

@@ -1,7 +1,4 @@
-use crate::{
-    collection::{Collection, ContextLikeCollection},
-    BoxDynIntoStateLike, OptionRcRefCellDynStateLike,
-};
+use crate::{collection::ContextLikeCollection, BoxDynIntoStateLike, OptionRcRefCellDynStateLike};
 
 //TODO use dyn contextLike instead of StateContext
 pub trait ContextLike {
@@ -96,8 +93,10 @@ impl ContextLike for StateOptionsContext {
                             if let Some(contexts) = contexts {
                                 let context = contexts.get_mut(0);
                                 if let Some(context) = context {
-                                    return context.collect();
-                                    //TODO
+                                    return ContextLikeCollection::new(
+                                        self.name.clone(),
+                                        context.get_value(),
+                                    );
                                 }
                             }
                         }
