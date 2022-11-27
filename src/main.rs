@@ -96,6 +96,7 @@ fn t() {
             Box::new(state_for_context.clone()),
             false,
         );
+
         let options: Vec<Box<dyn OptionLike>> =
             vec![Box::new(option1), Box::new(option2), Box::new(option3)];
         state_for_valid_options.borrow_mut().options = options;
@@ -218,62 +219,4 @@ fn t() {
 
 fn main() {
     t();
-    //create a state creator
-    let ser_into_state = SerDeIntoStateLike::Path("/opt/t".to_string(), true);
-
-    let opt_path = SerDeOption {
-        name: "option1".to_string(),
-        submit: false,
-        state: ser_into_state,
-    };
-
-    let opt_inline = SerDeOption {
-        name: "option2".to_string(),
-        submit: false,
-        state: SerDeIntoStateLike::Inline(SerDeState {
-            name: "child2".to_string(),
-            description: "child2 description".to_string(),
-            r#type: StateType::Context(
-                vec![
-                    SerDeContext {
-                        name: "context1".to_string(),
-                    },
-                    SerDeContext {
-                        name: "context2".to_string(),
-                    },
-                    SerDeContext {
-                        name: "context3".to_string(),
-                    },
-                ],
-                None,
-                false,
-            ),
-        }),
-    };
-
-    let state_type = StateType::Options(vec![opt_path, opt_inline]);
-
-    let state_c = SerDeState {
-        name: "root".to_string(),
-        description: "root description".to_string(),
-        r#type: state_type,
-    };
-
-    // let opt_t = SerDeIntoStateLike::Inline(state_c);
-    // let opt_c = SerDeOption{
-    //     name: "option1".to_string(),
-    //     submit: false,
-    //     state: opt_t,
-    // };
-    // let state_t = StateType::Options(vec![opt_c]);
-    // let state_c = SerDeState {
-    //     name: "root".to_string(),
-    //     description: "root description".to_string(),
-    //     r#type: state_t,
-    // };
-
-    //state_c to yaml
-    let yaml = serde_yaml::to_string(&state_c).unwrap();
-    //save yaml to file
-    std::fs::write("state.yaml", yaml).unwrap();
 }
