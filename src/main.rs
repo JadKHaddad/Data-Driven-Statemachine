@@ -219,10 +219,15 @@ fn run(root: Rc<RefCell<dyn StateLike>>) {
     }
 }
 fn main() {
-    let mut file = File::open("state.yaml").unwrap();
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).unwrap();
-    let state: SerDeState = serde_yaml::from_str(&contents).unwrap();
-    let state = state.into_state_like(None).unwrap();
+    let how_to_create = |name: String| {
+        let mut file = File::open(&name).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        let state: SerDeState = serde_yaml::from_str(&contents).unwrap();
+        Ok(state)
+    };
+
+    let state = SerDeState::create(Box::new(how_to_create), String::from("state.yaml")).unwrap().unwrap();
     run(state);
+
 }

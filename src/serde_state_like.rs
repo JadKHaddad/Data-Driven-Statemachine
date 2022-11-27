@@ -1,4 +1,5 @@
 use crate::error::Error as StateError;
+use std::error::Error as StdError;
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, rc::Rc};
 
@@ -62,6 +63,10 @@ impl SerDeState {
             }
         };
         Ok(state)
+    }
+
+    pub fn create(how_to_create: Box<dyn Fn(String) -> Result<SerDeState, Box<dyn StdError>>>, name: String) -> Result<Result<RcRefCellDynStateLike, StateError>, Box<dyn StdError>> {
+        Ok(how_to_create(name)?.into_state_like(None))
     }
 }
 
@@ -186,7 +191,7 @@ impl SerDeOption {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SerDeIntoStateLike {
     Inline(SerDeState),
-    Path(String /*path to state*/, bool /*lazy*/),
+    Path(String /*path to state*/, Option<bool> /*lazy*/),
 }
 
 impl SerDeIntoStateLike {
@@ -197,6 +202,7 @@ impl SerDeIntoStateLike {
         match self {
             SerDeIntoStateLike::Inline(state) => Ok(Box::new(state.into_state_like(parent)?)),
             SerDeIntoStateLike::Path(path, lazy) => {
+                let lazy = lazy.unwrap_or(false);
                 //stateholder
                 todo!();
             }
