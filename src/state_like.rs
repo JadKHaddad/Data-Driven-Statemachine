@@ -1,3 +1,4 @@
+use crate::error::Error as StateError;
 use crate::{
     collection::{Collection, ContextLikeCollection},
     option_like::OptionLike,
@@ -17,7 +18,7 @@ pub trait StateLike {
     fn input(&mut self, input: String) -> InputStatus;
     fn output(&mut self) -> OutputStatus;
     fn back(&mut self) -> InputStatus;
-    fn collect(&mut self) -> Vec<Collection>;
+    fn collect(&mut self) -> Result<Vec<Collection>, StateError>;
 }
 
 pub trait IntoStateLike {
@@ -272,23 +273,23 @@ impl StateLike for ContextState {
         return status;
     }
 
-    fn collect(&mut self) -> Vec<Collection> {
+    fn collect(&mut self) -> Result<Vec<Collection>, StateError> {
         let collection = Collection {
             state_name: self.get_name(),
             context_collections: self
                 .contexts
                 .iter_mut()
                 .map(|context| context.collect())
-                .collect(),
+                .collect::<Result<Vec<ContextLikeCollection>, StateError>>()?,
         };
 
         if let Some(parent) = &self.parent {
-            let mut parent_collections = parent.borrow_mut().collect();
+            let mut parent_collections = parent.borrow_mut().collect()?;
             parent_collections.push(collection);
-            return parent_collections;
+            return Ok(parent_collections);
         }
 
-        vec![collection]
+        Ok(vec![collection])
     }
 
     //called from an OptionsState that has been created through a Context
@@ -393,7 +394,7 @@ impl StateLike for OptionsState {
         return status;
     }
 
-    fn collect(&mut self) -> Vec<Collection> {
+    fn collect(&mut self) -> Result<Vec<Collection>, StateError> {
         if let Some(option) = self.options.get(self.index) {
             let context_like_collection =
                 ContextLikeCollection::new(self.name.clone(), option.get_name());
@@ -406,15 +407,15 @@ impl StateLike for OptionsState {
             if let Some(parent) = &self.parent {
                 let mut parent_mute = parent.borrow_mut();
                 collection.state_name = parent_mute.get_name();
-                let mut parent_collections = parent_mute.collect();
+                let mut parent_collections = parent_mute.collect()?;
                 parent_collections.push(collection);
-                return parent_collections;
+                return Ok(parent_collections);
             }
 
-            return vec![collection];
+            return Ok(vec![collection]);
         }
         //something went wrong
-        vec![]
+        Err(StateError::BadConstruction)
     }
 
     fn decrease_index(&mut self, _amount: usize) {

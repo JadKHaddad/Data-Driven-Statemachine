@@ -161,7 +161,7 @@ fn t() {
                 }
                 if output_status.submit {
                     println!("submitting\n");
-                    let collections = current_state.borrow_mut().collect();
+                    let collections = current_state.borrow_mut().collect().unwrap();
                     for collection in collections {
                         println!("{}:", collection.state_name);
                         for context in collection.context_collections {
@@ -202,7 +202,7 @@ fn t() {
             }
             if input_status.submit {
                 println!("submitting\n");
-                let collections = current_state.borrow_mut().collect();
+                let collections = current_state.borrow_mut().collect().unwrap();
                 println!("{:?}", collections);
                 for collection in collections {
                     println!("{}:", collection.state_name);

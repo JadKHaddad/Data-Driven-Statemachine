@@ -1,12 +1,12 @@
 use crate::{collection::ContextLikeCollection, BoxDynIntoStateLike, OptionRcRefCellDynStateLike};
+use crate::error::Error as StateError;
 
-//TODO use dyn contextLike instead of StateContext
 pub trait ContextLike {
     fn input(&mut self, input: String);
     fn output(&mut self) -> OptionRcRefCellDynStateLike;
     fn get_name(&self) -> String;
     fn get_value(&self) -> String;
-    fn collect(&mut self) -> ContextLikeCollection;
+    fn collect(&mut self) -> Result<ContextLikeCollection, StateError>;
 }
 
 #[derive(Clone)]
@@ -38,8 +38,8 @@ impl ContextLike for StateContext {
         self.value.clone()
     }
 
-    fn collect(&mut self) -> ContextLikeCollection {
-        ContextLikeCollection::new(self.name.clone(), self.value.clone())
+    fn collect(&mut self) -> Result<ContextLikeCollection, StateError> {
+        Ok(ContextLikeCollection::new(self.name.clone(), self.value.clone()))
     }
 }
 
@@ -77,7 +77,7 @@ impl ContextLike for StateOptionsContext {
         self.value.clone()
     }
 
-    fn collect(&mut self) -> ContextLikeCollection {
+    fn collect(&mut self) -> Result<ContextLikeCollection, StateError> {
         if let Some(state) = self.state.into_state_like() {
             let mut state = state.borrow_mut();
             let index = state.get_index();
@@ -93,19 +93,19 @@ impl ContextLike for StateOptionsContext {
                             if let Some(contexts) = contexts {
                                 let context = contexts.get_mut(0);
                                 if let Some(context) = context {
-                                    return ContextLikeCollection::new(
+                                    return Ok(ContextLikeCollection::new(
                                         self.name.clone(),
                                         context.get_value(),
-                                    );
+                                    ));
                                 }
                             }
                         }
                     }
-                    return ContextLikeCollection::new(self.name.clone(), option.get_name());
+                    return Ok(ContextLikeCollection::new(self.name.clone(), option.get_name()));
                 }
             }
         }
         //something went wrong
-        ContextLikeCollection::new(self.name.clone(), self.value.clone())
+        Err(StateError::BadConstruction)
     }
 }
