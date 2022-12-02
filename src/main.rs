@@ -226,7 +226,7 @@ fn main() {
         Ok(contents)
     };
 
-    let state = SerDeState::create(Box::new(how_to_get_string), String::from("state.yaml")).unwrap().unwrap();
+    let state = SerDeState::create_from_yaml_str(Box::new(how_to_get_string), String::from("state.yaml")).unwrap().unwrap();
     run(state);
 
 }
