@@ -6,6 +6,7 @@ use statemachine::{
     status::{InputStatus, OutputStatus},
 };
 use std::{cell::RefCell, fs::File, io::Read, rc::Rc};
+use std::error::Error as StdError;
 
 fn t() {
     let root = Rc::new(RefCell::new(OptionsState::new(
@@ -226,7 +227,9 @@ fn main() {
         Ok(contents)
     };
 
-    let state = SerDeState::create_from_yaml_str(Box::new(how_to_get_string), String::from("state.yaml")).unwrap().unwrap();
+    let func: Box<dyn Fn(String) -> Result<String, Box<dyn StdError>>> = Box::new(how_to_get_string);
+
+    let state = SerDeState::create_from_yaml_str(&func, String::from("state.yaml")).unwrap().unwrap();
     run(state);
 
 }
