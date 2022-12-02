@@ -1,0 +1,11 @@
+name: State 2
+description: I am not !Inline!
+type: !Context
+    - - name: Did you understatnd the code?
+        type: !Normal
+      - name: You think I did?
+        type: !Options
+        - name: No
+        - name: Not really
+    - null
+    - false
