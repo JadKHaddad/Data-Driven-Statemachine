@@ -66,15 +66,15 @@ impl StateHolder {
     pub fn new(
         closure_state: impl Fn() -> Result<RcRefCellDynStateLike, Box<dyn StdError>> + 'static,
         lazy: bool,
-    ) -> StateHolder {
+    ) -> Result<StateHolder, Box<dyn StdError>> {
         let mut state_holder = StateHolder {
             closure_state: Box::new(closure_state),
             state: None,
         };
         if !lazy {
-            state_holder.into_state_like();
+            state_holder.into_state_like()?;
         }
-        state_holder
+        Ok(state_holder)
     }
 }
 pub struct OptionsState {

@@ -1,4 +1,5 @@
 use crate::error::Error as StateError;
+use crate::state_like::StateHolder;
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::{cell::RefCell, rc::Rc};
@@ -22,7 +23,7 @@ impl SerDeState {
     pub fn into_state_like(
         self,
         parent: OptionRcRefCellDynStateLike,
-        how_to_get_string: &Box<dyn Fn(String) -> Result<String, Box<dyn StdError>>>,
+        how_to_get_string: fn(String) -> Result<String, Box<dyn StdError>>,
     ) -> Result<Result<RcRefCellDynStateLike, StateError>, Box<dyn StdError>> {
         let state: RcRefCellDynStateLike = match self.r#type {
             StateType::Context(contexts, next, submit) => {
@@ -67,7 +68,7 @@ impl SerDeState {
     }
 
     pub fn create_from_yaml_str(
-        how_to_get_string: &Box<dyn Fn(String) -> Result<String, Box<dyn StdError>>>,
+        how_to_get_string: fn(String) -> Result<String, Box<dyn StdError>>,
         name: String,
     ) -> Result<Result<RcRefCellDynStateLike, StateError>, Box<dyn StdError>> {
         let string = how_to_get_string(name)?;
@@ -93,7 +94,7 @@ impl SerDeContext {
     pub fn into_context_like(
         self,
         parent_of_options_state: OptionRcRefCellDynStateLike,
-        how_to_get_string: &Box<dyn Fn(String) -> Result<String, Box<dyn StdError>>>,
+        how_to_get_string: fn(String) -> Result<String, Box<dyn StdError>>,
     ) -> Result<Result<BoxDynContextLike, StateError>, Box<dyn StdError>> {
         let value = self.value.unwrap_or_default();
 
@@ -181,7 +182,7 @@ impl SerDeOption {
         self,
         parent: OptionRcRefCellDynStateLike,
         backup_state: OptionRcRefCellDynStateLike,
-        how_to_get_string: &Box<dyn Fn(String) -> Result<String, Box<dyn StdError>>>,
+        how_to_get_string: fn(String) -> Result<String, Box<dyn StdError>>,
     ) -> Result<Result<BoxDynOptionLike, StateError>, Box<dyn StdError>> {
         let submit = self.submit.unwrap_or(false);
 
@@ -211,7 +212,7 @@ impl SerDeIntoStateLike {
     pub fn into_into_state_like(
         self,
         parent: OptionRcRefCellDynStateLike,
-        how_to_get_string: &Box<dyn Fn(String) -> Result<String, Box<dyn StdError>>>,
+        how_to_get_string: fn(String) -> Result<String, Box<dyn StdError>>,
     ) -> Result<Result<BoxDynIntoStateLike, StateError>, Box<dyn StdError>> {
         match self {
             SerDeIntoStateLike::Inline(state) => {
@@ -221,8 +222,15 @@ impl SerDeIntoStateLike {
             }
             SerDeIntoStateLike::Path(path, lazy) => {
                 let lazy = lazy.unwrap_or(false);
-                //stateholder
-                todo!();
+                let state_holder: BoxDynIntoStateLike = Box::new(StateHolder::new(
+                    move || {
+                        let string = how_to_get_string(path.clone())?;
+                        let state: SerDeState = serde_yaml::from_str(&string)?;
+                        Ok(state.into_state_like(parent.clone(), how_to_get_string)??)
+                    },
+                    lazy,
+                )?);
+                Ok(Ok(state_holder))
             }
         }
     }

@@ -5,8 +5,8 @@ use statemachine::{
     state_like::{ContextState, OptionsState, StateHolder, StateLike},
     status::{InputStatus, OutputStatus},
 };
+
 use std::{cell::RefCell, fs::File, io::Read, rc::Rc};
-use std::error::Error as StdError;
 
 fn t() {
     let root = Rc::new(RefCell::new(OptionsState::new(
@@ -116,18 +116,21 @@ fn t() {
         let root_clone = root.clone();
         let option5 = StateOption::new(
             String::from("option5"),
-            Box::new(StateHolder::new(
-                move || {
-                    println!("Creating option5");
-                    Ok(Rc::new(RefCell::new(OptionsState::new(
-                        String::from("child5"),
-                        String::from("child5 description"),
-                        Some(root_clone.clone()),
-                        vec![],
-                    ))))
-                },
-                false,
-            )),
+            Box::new(
+                StateHolder::new(
+                    move || {
+                        println!("Creating option5");
+                        Ok(Rc::new(RefCell::new(OptionsState::new(
+                            String::from("child5"),
+                            String::from("child5 description"),
+                            Some(root_clone.clone()),
+                            vec![],
+                        ))))
+                    },
+                    false,
+                )
+                .unwrap(),
+            ),
             false,
         );
 
@@ -227,9 +230,8 @@ fn main() {
         Ok(contents)
     };
 
-    let func: Box<dyn Fn(String) -> Result<String, Box<dyn StdError>>> = Box::new(how_to_get_string);
-
-    let state = SerDeState::create_from_yaml_str(&func, String::from("state.yaml")).unwrap().unwrap();
+    let state = SerDeState::create_from_yaml_str(how_to_get_string, String::from("state.yaml"))
+        .unwrap()
+        .unwrap();
     run(state);
-
 }
