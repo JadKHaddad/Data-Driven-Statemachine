@@ -1,12 +1,12 @@
-use crate::{collection::ContextLikeCollection, BoxDynIntoStateLike, OptionRcRefCellDynStateLike};
 use crate::error::Error as StateError;
-
+use crate::{collection::ContextLikeCollection, BoxDynIntoStateLike, OptionRcRefCellDynStateLike};
+use std::error::Error as StdError;
 pub trait ContextLike {
     fn input(&mut self, input: String);
-    fn output(&mut self) -> OptionRcRefCellDynStateLike;
+    fn output(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>>;
     fn get_name(&self) -> String;
     fn get_value(&self) -> String;
-    fn collect(&mut self) -> Result<ContextLikeCollection, StateError>;
+    fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>>;
 }
 
 #[derive(Clone)]
@@ -26,8 +26,8 @@ impl ContextLike for StateContext {
         self.value = input;
     }
 
-    fn output(&mut self) -> OptionRcRefCellDynStateLike {
-        None
+    fn output(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+        Ok(None)
     }
 
     fn get_name(&self) -> String {
@@ -38,8 +38,11 @@ impl ContextLike for StateContext {
         self.value.clone()
     }
 
-    fn collect(&mut self) -> Result<ContextLikeCollection, StateError> {
-        Ok(ContextLikeCollection::new(self.name.clone(), self.value.clone()))
+    fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
+        Ok(Ok(ContextLikeCollection::new(
+            self.name.clone(),
+            self.value.clone(),
+        )))
     }
 }
 
@@ -65,7 +68,7 @@ impl ContextLike for StateOptionsContext {
         self.value = input;
     }
 
-    fn output(&mut self) -> OptionRcRefCellDynStateLike {
+    fn output(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
         self.state.into_state_like()
     }
 
@@ -77,8 +80,8 @@ impl ContextLike for StateOptionsContext {
         self.value.clone()
     }
 
-    fn collect(&mut self) -> Result<ContextLikeCollection, StateError> {
-        if let Some(state) = self.state.into_state_like() {
+    fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
+        if let Some(state) = self.state.into_state_like()? {
             let mut state = state.borrow_mut();
             let index = state.get_index();
             let options = state.get_options();
@@ -86,26 +89,29 @@ impl ContextLike for StateOptionsContext {
                 let len = options.len();
                 if let Some(option) = options.get_mut(index) {
                     if index == len - 1 {
-                        let in_state = option.get_state();
+                        let in_state = option.get_state()?;
                         if let Some(in_state) = in_state {
                             let mut in_state = in_state.borrow_mut();
                             let contexts = in_state.get_contexts();
                             if let Some(contexts) = contexts {
                                 let context = contexts.get_mut(0);
                                 if let Some(context) = context {
-                                    return Ok(ContextLikeCollection::new(
+                                    return Ok(Ok(ContextLikeCollection::new(
                                         self.name.clone(),
                                         context.get_value(),
-                                    ));
+                                    )));
                                 }
                             }
                         }
                     }
-                    return Ok(ContextLikeCollection::new(self.name.clone(), option.get_name()));
+                    return Ok(Ok(ContextLikeCollection::new(
+                        self.name.clone(),
+                        option.get_name(),
+                    )));
                 }
             }
         }
         //something went wrong
-        Err(StateError::BadConstruction)
+        Ok(Err(StateError::BadConstruction))
     }
 }

@@ -119,12 +119,12 @@ fn t() {
             Box::new(StateHolder::new(
                 move || {
                     println!("Creating option5");
-                    Rc::new(RefCell::new(OptionsState::new(
+                    Ok(Rc::new(RefCell::new(OptionsState::new(
                         String::from("child5"),
                         String::from("child5 description"),
                         Some(root_clone.clone()),
                         vec![],
-                    )))
+                    ))))
                 },
                 false,
             )),
@@ -153,7 +153,7 @@ fn run(root: Rc<RefCell<dyn StateLike>>) {
         {
             {
                 let mut current_state_ref = current_state.borrow_mut();
-                output_status = current_state_ref.output();
+                output_status = current_state_ref.output().unwrap();
                 println!("{}", output_status);
                 println!("------------");
             }
@@ -165,7 +165,7 @@ fn run(root: Rc<RefCell<dyn StateLike>>) {
                 }
                 if output_status.submit {
                     println!("submitting\n");
-                    let collections = current_state.borrow_mut().collect().unwrap();
+                    let collections = current_state.borrow_mut().collect().unwrap().unwrap();
                     for collection in collections {
                         println!("{}:", collection.state_name);
                         for context in collection.context_collections {
@@ -193,7 +193,7 @@ fn run(root: Rc<RefCell<dyn StateLike>>) {
             if input == "back" {
                 input_status = current_state_ref.back();
             } else {
-                input_status = current_state_ref.input(input);
+                input_status = current_state_ref.input(input).unwrap();
             }
             println!("------------");
             println!("{}", input_status);
@@ -206,7 +206,7 @@ fn run(root: Rc<RefCell<dyn StateLike>>) {
             }
             if input_status.submit {
                 println!("submitting\n");
-                let collections = current_state.borrow_mut().collect().unwrap();
+                let collections = current_state.borrow_mut().collect().unwrap().unwrap();
                 println!("{:?}", collections);
                 for collection in collections {
                     println!("{}:", collection.state_name);

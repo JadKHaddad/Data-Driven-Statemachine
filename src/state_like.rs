@@ -6,6 +6,7 @@ use crate::{
     OptionBoxDynIntoStateLike, OptionRcRefCellDynStateLike, RcRefCellContextState,
     RcRefCellDynStateLike, RcRefCellOptionsState, VecBoxDynContextLike, VecBoxDynOptionLike,
 };
+use std::error::Error as StdError;
 
 pub trait StateLike {
     fn get_name(&self) -> String;
@@ -15,55 +16,55 @@ pub trait StateLike {
     fn get_options(&mut self) -> Option<&mut VecBoxDynOptionLike>;
     fn get_contexts(&mut self) -> Option<&mut VecBoxDynContextLike>;
     fn decrease_index(&mut self, amount: usize);
-    fn input(&mut self, input: String) -> InputStatus;
-    fn output(&mut self) -> OutputStatus;
+    fn input(&mut self, input: String) -> Result<InputStatus, Box<dyn StdError>>;
+    fn output(&mut self) -> Result<OutputStatus, Box<dyn StdError>>;
     fn back(&mut self) -> InputStatus;
-    fn collect(&mut self) -> Result<Vec<Collection>, StateError>;
+    fn collect(&mut self) -> Result<Result<Vec<Collection>, StateError>, Box<dyn StdError>>;
 }
 
 pub trait IntoStateLike {
-    fn into_state_like(&mut self) -> OptionRcRefCellDynStateLike;
+    fn into_state_like(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>>;
 }
 
 impl IntoStateLike for RcRefCellOptionsState {
-    fn into_state_like(&mut self) -> OptionRcRefCellDynStateLike {
-        Some(self.clone())
+    fn into_state_like(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+        Ok(Some(self.clone()))
     }
 }
 
 impl IntoStateLike for RcRefCellContextState {
-    fn into_state_like(&mut self) -> OptionRcRefCellDynStateLike {
-        Some(self.clone())
+    fn into_state_like(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+        Ok(Some(self.clone()))
     }
 }
 
 impl IntoStateLike for RcRefCellDynStateLike {
-    fn into_state_like(&mut self) -> OptionRcRefCellDynStateLike {
-        Some(self.clone())
+    fn into_state_like(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+        Ok(Some(self.clone()))
     }
 }
 
 impl IntoStateLike for StateHolder {
-    fn into_state_like(&mut self) -> OptionRcRefCellDynStateLike {
+    fn into_state_like(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
         if let Some(state) = &self.state {
             dbg!("State already exists");
-            return Some(state.clone());
+            return Ok(Some(state.clone()));
         }
         dbg!("State creating");
-        let state = (self.closure_state)();
+        let state = (self.closure_state)()?;
         self.state = Some(state.clone());
-        Some(state)
+        Ok(Some(state))
     }
 }
 
 pub struct StateHolder {
-    pub closure_state: Box<dyn Fn() -> RcRefCellDynStateLike>, //parent should be passed in
+    pub closure_state: Box<dyn Fn() -> Result<RcRefCellDynStateLike, Box<dyn StdError>>>, //parent should be passed in
     pub state: OptionRcRefCellDynStateLike,
 }
 
 impl StateHolder {
     pub fn new(
-        closure_state: impl Fn() -> RcRefCellDynStateLike + 'static,
+        closure_state: impl Fn() -> Result<RcRefCellDynStateLike, Box<dyn StdError>> + 'static,
         lazy: bool,
     ) -> StateHolder {
         let mut state_holder = StateHolder {
@@ -133,16 +134,18 @@ impl ContextState {
         }
     }
 
-    fn on_highest_index(&mut self, status: &mut impl StatusLike) {
+    fn on_highest_index(&mut self, status: &mut impl StatusLike) -> Result<(), Box<dyn StdError>> {
         status.set_state_changed(true);
         status.set_submit(self.submit);
 
         if let Some(next) = &mut self.next {
             dbg!("Next state");
-            status.set_state(next.into_state_like());
+            status.set_state(next.into_state_like()?);
+            Ok(())
         } else {
             dbg!("No next state");
             status.set_submit(true);
+            Ok(())
         }
     }
 }
@@ -172,7 +175,7 @@ impl StateLike for ContextState {
         Some(&mut self.contexts)
     }
 
-    fn input(&mut self, input: String) -> InputStatus {
+    fn input(&mut self, input: String) -> Result<InputStatus, Box<dyn StdError>> {
         //submit will be true if all contexts are filled and the next state is not set
         //if the next state is set, then the submit will be the state's submit value
         let mut status = InputStatus {
@@ -191,13 +194,13 @@ impl StateLike for ContextState {
         }
 
         if self.index >= self.contexts.len() {
-            self.on_highest_index(&mut status);
+            self.on_highest_index(&mut status)?;
         }
 
-        return status;
+        return Ok(status);
     }
 
-    fn output(&mut self) -> OutputStatus {
+    fn output(&mut self) -> Result<OutputStatus, Box<dyn StdError>> {
         let mut status = OutputStatus {
             state_changed: false,
             state: None,
@@ -209,27 +212,27 @@ impl StateLike for ContextState {
             self.go_back = false;
             status.state_changed = true;
             status.state = self.get_parent();
-            return status;
+            return Ok(status);
         }
 
         if self.index >= self.contexts.len() {
-            self.on_highest_index(&mut status);
-            return status;
+            self.on_highest_index(&mut status)?;
+            return Ok(status);
         }
 
         //this means that the current context is an option
         if let Some(context) = self.contexts.get_mut(self.index) {
-            let next_state = context.output();
+            let next_state = context.output()?;
             if next_state.is_some() {
                 if self.index < self.contexts.len() {
                     self.index += 1;
                 }
-                return OutputStatus {
+                return Ok(OutputStatus {
                     state_changed: true,
                     state: next_state,
                     submit: false,
                     output: String::new(),
-                };
+                });
             }
         }
 
@@ -243,12 +246,12 @@ impl StateLike for ContextState {
         if let Some(context) = self.contexts.get(self.index) {
             output.push_str(&format!("{}\n", context.get_name()));
         }
-        OutputStatus {
+        Ok(OutputStatus {
             state_changed: false,
             state: None,
             submit: false,
             output,
-        }
+        })
     }
 
     fn back(&mut self) -> InputStatus {
@@ -273,23 +276,26 @@ impl StateLike for ContextState {
         return status;
     }
 
-    fn collect(&mut self) -> Result<Vec<Collection>, StateError> {
+    fn collect(&mut self) -> Result<Result<Vec<Collection>, StateError>, Box<dyn StdError>> {
         let collection = Collection {
             state_name: self.get_name(),
             context_collections: self
                 .contexts
                 .iter_mut()
                 .map(|context| context.collect())
-                .collect::<Result<Vec<ContextLikeCollection>, StateError>>()?,
+                .collect::<Result<
+                Result<Vec<ContextLikeCollection>, StateError>,
+                Box<dyn StdError>,
+            >>()??,
         };
 
         if let Some(parent) = &self.parent {
-            let mut parent_collections = parent.borrow_mut().collect()?;
+            let mut parent_collections = parent.borrow_mut().collect()??;
             parent_collections.push(collection);
-            return Ok(parent_collections);
+            return Ok(Ok(parent_collections));
         }
 
-        Ok(vec![collection])
+        Ok(Ok(vec![collection]))
     }
 
     //called from an OptionsState that has been created through a Context
@@ -328,7 +334,7 @@ impl StateLike for OptionsState {
         None
     }
 
-    fn input(&mut self, input: String) -> InputStatus {
+    fn input(&mut self, input: String) -> Result<InputStatus, Box<dyn StdError>> {
         let mut status = InputStatus {
             state_changed: false,
             state: None,
@@ -336,46 +342,50 @@ impl StateLike for OptionsState {
             input_recognized: false,
         };
 
-        fn on_input_recognized(status: &mut InputStatus, option: &mut Box<dyn OptionLike>) {
+        fn on_input_recognized(
+            status: &mut InputStatus,
+            option: &mut Box<dyn OptionLike>,
+        ) -> Result<(), Box<dyn StdError>> {
             status.state_changed = true;
-            status.state = option.get_state();
+            status.state = option.get_state()?;
             status.submit = option.get_submit();
             status.input_recognized = true;
+            Ok(())
         }
 
         if let Ok(input_as_u32) = input.parse::<u32>() {
             if input_as_u32 > 0 {
                 let index = input_as_u32 as usize - 1;
                 if let Some(option) = self.options.get_mut(index) {
-                    on_input_recognized(&mut status, option);
+                    on_input_recognized(&mut status, option)?;
                     self.index = index;
-                    return status;
+                    return Ok(status);
                 }
             }
         }
         for (index, option) in self.options.iter_mut().enumerate() {
             if option.input(&input) {
-                on_input_recognized(&mut status, option);
+                on_input_recognized(&mut status, option)?;
                 self.index = index;
-                return status;
+                return Ok(status);
             }
         }
 
-        return status;
+        return Ok(status);
     }
 
-    fn output(&mut self) -> OutputStatus {
+    fn output(&mut self) -> Result<OutputStatus, Box<dyn StdError>> {
         let mut output = format!("[{}]\n", self.name);
         output.push_str(&format!("{}\n", self.description));
         for (index, option) in self.options.iter().enumerate() {
             output.push_str(&format!("{}. {}\n", index + 1, option.get_name()));
         }
-        OutputStatus {
+        Ok(OutputStatus {
             output,
             state_changed: false,
             submit: false,
             state: None,
-        }
+        })
     }
 
     fn back(&mut self) -> InputStatus {
@@ -394,7 +404,7 @@ impl StateLike for OptionsState {
         return status;
     }
 
-    fn collect(&mut self) -> Result<Vec<Collection>, StateError> {
+    fn collect(&mut self) -> Result<Result<Vec<Collection>, StateError>, Box<dyn StdError>> {
         if let Some(option) = self.options.get(self.index) {
             let context_like_collection =
                 ContextLikeCollection::new(self.name.clone(), option.get_name());
@@ -407,15 +417,15 @@ impl StateLike for OptionsState {
             if let Some(parent) = &self.parent {
                 let mut parent_mute = parent.borrow_mut();
                 collection.state_name = parent_mute.get_name();
-                let mut parent_collections = parent_mute.collect()?;
+                let mut parent_collections = parent_mute.collect()??;
                 parent_collections.push(collection);
-                return Ok(parent_collections);
+                return Ok(Ok(parent_collections));
             }
 
-            return Ok(vec![collection]);
+            return Ok(Ok(vec![collection]));
         }
         //something went wrong
-        Err(StateError::BadConstruction)
+        Ok(Err(StateError::BadConstruction))
     }
 
     fn decrease_index(&mut self, _amount: usize) {
