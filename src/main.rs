@@ -230,8 +230,9 @@ fn main() {
         Ok(contents)
     };
 
-    let state = SerDeState::create_from_yaml_str(how_to_get_string, String::from("states/state.yaml"))
-        .unwrap()
-        .unwrap();
+    let state =
+        SerDeState::create_from_yaml_str(how_to_get_string, String::from("states/state.yaml"))
+            .unwrap()
+            .unwrap();
     run(state);
 }

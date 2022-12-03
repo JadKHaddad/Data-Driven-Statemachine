@@ -77,6 +77,7 @@ impl StateHolder {
         Ok(state_holder)
     }
 }
+
 pub struct OptionsState {
     pub name: String,
     pub description: String,

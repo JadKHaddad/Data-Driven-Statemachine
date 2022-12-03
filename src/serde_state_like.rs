@@ -87,7 +87,7 @@ pub struct SerDeContext {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum ContextType {
     Normal,
-    Options(Vec<SerDeOption>),
+    Options(Vec<SerDeOption>, String, String),
 }
 
 impl SerDeContext {
@@ -105,11 +105,15 @@ impl SerDeContext {
                     value,
                 })));
             }
-            ContextType::Options(options) => {
-                //crteate the valid options state
+            ContextType::Options(options, given_option, given_question) => {
+                let name = match parent_of_options_state.clone() {
+                    Some(parent) => parent.borrow().get_name(),
+                    None => String::new(),
+                };
+                //create the valid options state
                 let state_for_valid_options = Rc::new(RefCell::new(OptionsState::new(
-                    String::from("valid options"),
-                    String::from("valid options"),
+                    name.clone(),
+                    self.name.clone(),
                     parent_of_options_state.clone(),
                     vec![],
                 )));
@@ -117,23 +121,20 @@ impl SerDeContext {
                 //create a context state with only one context
                 if let Some(some_parent_of_options_state) = parent_of_options_state.clone() {
                     let state_for_context = Rc::new(RefCell::new(ContextState::new(
-                        String::from("Other"),
-                        String::from("Other"),
+                        name.clone(),
+                        self.name.clone(),
                         Some(state_for_valid_options.clone()),
                         Some(Box::new(some_parent_of_options_state.clone())),
                         vec![Box::new(StateContext {
-                            name: String::from("Other"),
+                            name: given_question,
                             value: String::new(),
                         })],
                         false,
                     )));
 
                     //create the option that holds the context state
-                    let option = StateOption::new(
-                        String::from("Others"),
-                        Box::new(state_for_context.clone()),
-                        false,
-                    );
+                    let option =
+                        StateOption::new(given_option, Box::new(state_for_context.clone()), false);
 
                     //create the valid options
                     let mut options: Vec<BoxDynOptionLike> =

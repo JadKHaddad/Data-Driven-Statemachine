@@ -14,8 +14,10 @@ type: !Options
         type: !Normal
       - name: Where?
         type: !Options
-        - name: Here
-        - name: There
+        - - name: Here
+          - name: There
+        - Else where
+        - Where could it be?
     - null
     - false
 - name: Option2
@@ -28,8 +30,10 @@ type: !Options
         type: !Normal
       - name: What's poppin?
         type: !Options
-        - name: Popcorn
-        - name: Not much
-        - name: Some other stuff
+        - - name: Popcorn
+          - name: Not much
+          - name: Some other stuff
+        - Let me tell you something
+        - Hmm? so what is it?
     - null
     - false   

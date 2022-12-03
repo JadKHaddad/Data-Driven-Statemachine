@@ -1,5 +1,3 @@
-
-
 #[derive(Debug)]
 pub struct Collection {
     pub state_name: String,
@@ -7,8 +5,11 @@ pub struct Collection {
 }
 
 impl Collection {
-    pub fn new(name: String, context_collections:  Vec<ContextLikeCollection>) -> Collection {
-        Collection { state_name: name, context_collections }
+    pub fn new(name: String, context_collections: Vec<ContextLikeCollection>) -> Collection {
+        Collection {
+            state_name: name,
+            context_collections,
+        }
     }
 }
 #[derive(Debug)]
