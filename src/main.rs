@@ -222,17 +222,30 @@ fn run(root: Rc<RefCell<dyn StateLike>>) {
         }
     }
 }
+use std::error::Error as StdError;
 fn main() {
-    let how_to_get_string = |name: String| {
+    let how_to_get_string_local = |name: String| {
         let mut file = File::open(&name).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
         Ok(contents)
     };
 
-    let state =
-        SerDeState::create_from_yaml_str(how_to_get_string, String::from("states/state.yaml"))
-            .unwrap()
-            .unwrap();
+    let how_to_get_string_from_api = |name: String| {
+        //sleep 3 seconds to simulate api call
+        std::thread::sleep(std::time::Duration::from_secs(3));
+
+        let mut file = File::open(&name).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        Ok(contents)
+    };
+
+    let functions: Vec<fn(String) -> Result<String, Box<dyn StdError>>> =
+        vec![how_to_get_string_local, how_to_get_string_from_api];
+
+    let state = SerDeState::create_from_yaml_str(functions, String::from("states/state.yaml"), 0)
+        .unwrap()
+        .unwrap();
     run(state);
 }

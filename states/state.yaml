@@ -3,7 +3,10 @@ description: Main description
 type: !Options
 - name: Option0
   submit: false
-  state: !Path [states/state2.yaml, false]
+  state: !Path 
+  - states/state2.yaml  # path
+  - false               # lazy
+  - 1                   # which function to use
 - name: Option1
   submit: false
   state: !Inline

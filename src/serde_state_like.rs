@@ -23,7 +23,7 @@ impl SerDeState {
     pub fn into_state_like(
         self,
         parent: OptionRcRefCellDynStateLike,
-        how_to_get_string: fn(String) -> Result<String, Box<dyn StdError>>,
+        how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
     ) -> Result<Result<RcRefCellDynStateLike, StateError>, Box<dyn StdError>> {
         let state: RcRefCellDynStateLike = match self.r#type {
             StateType::Context(contexts, next, submit) => {
@@ -38,13 +38,13 @@ impl SerDeState {
 
                 let contexts: VecBoxDynContextLike = contexts
                     .into_iter()
-                    .map(|x| x.into_context_like(Some(state.clone()), how_to_get_string))
+                    .map(|x| x.into_context_like(Some(state.clone()), how_to_get_string.clone()))
                     .collect::<Result<Result<Vec<BoxDynContextLike>, StateError>,Box<dyn StdError>>>()??;
                 state.borrow_mut().contexts = contexts;
 
                 if let Some(next) = next {
                     let next_state =
-                        next.into_into_state_like(Some(state.clone()), how_to_get_string)?;
+                        next.into_into_state_like(Some(state.clone()), how_to_get_string.clone())?;
                     state.borrow_mut().next = Some(next_state?);
                 }
                 state
@@ -58,7 +58,7 @@ impl SerDeState {
                 )));
                 let options: Vec<BoxDynOptionLike> = options
                     .into_iter()
-                    .map(|x| x.into_option_like(Some(state.clone()), None, how_to_get_string))
+                    .map(|x| x.into_option_like(Some(state.clone()), None, how_to_get_string.clone()))
                     .collect::<Result<Result<Vec<BoxDynOptionLike>, StateError>,Box<dyn StdError>>>()??;
                 state.borrow_mut().options = options;
                 state
@@ -68,10 +68,14 @@ impl SerDeState {
     }
 
     pub fn create_from_yaml_str(
-        how_to_get_string: fn(String) -> Result<String, Box<dyn StdError>>,
+        how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
         name: String,
+        which_function: usize,
     ) -> Result<Result<RcRefCellDynStateLike, StateError>, Box<dyn StdError>> {
-        let string = how_to_get_string(name)?;
+        let function = how_to_get_string
+            .get(which_function)
+            .ok_or("Function not found")?;
+        let string = function(name)?;
         let state: SerDeState = serde_yaml::from_str(&string)?;
         Ok(state.into_state_like(None, how_to_get_string)?)
     }
@@ -94,7 +98,7 @@ impl SerDeContext {
     pub fn into_context_like(
         self,
         parent_of_options_state: OptionRcRefCellDynStateLike,
-        how_to_get_string: fn(String) -> Result<String, Box<dyn StdError>>,
+        how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
     ) -> Result<Result<BoxDynContextLike, StateError>, Box<dyn StdError>> {
         let value = self.value.unwrap_or_default();
 
@@ -144,7 +148,7 @@ impl SerDeContext {
                                 x.into_option_like(
                                     Some(state_for_valid_options.clone()),
                                     parent_of_options_state.clone(),
-                                    how_to_get_string,
+                                    how_to_get_string.clone(),
                                 )
                             })
                             .collect::<Result<
@@ -183,7 +187,7 @@ impl SerDeOption {
         self,
         parent: OptionRcRefCellDynStateLike,
         backup_state: OptionRcRefCellDynStateLike,
-        how_to_get_string: fn(String) -> Result<String, Box<dyn StdError>>,
+        how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
     ) -> Result<Result<BoxDynOptionLike, StateError>, Box<dyn StdError>> {
         let submit = self.submit.unwrap_or(false);
 
@@ -206,14 +210,18 @@ impl SerDeOption {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SerDeIntoStateLike {
     Inline(SerDeState),
-    Path(String /*path to state*/, Option<bool> /*lazy*/),
+    Path(
+        String,       /*path to state*/
+        Option<bool>, /*lazy*/
+        usize,        /*which function*/
+    ),
 }
 
 impl SerDeIntoStateLike {
     pub fn into_into_state_like(
         self,
         parent: OptionRcRefCellDynStateLike,
-        how_to_get_string: fn(String) -> Result<String, Box<dyn StdError>>,
+        how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
     ) -> Result<Result<BoxDynIntoStateLike, StateError>, Box<dyn StdError>> {
         match self {
             SerDeIntoStateLike::Inline(state) => {
@@ -221,13 +229,16 @@ impl SerDeIntoStateLike {
                     Box::new(state.into_state_like(parent, how_to_get_string)??);
                 Ok(Ok(state))
             }
-            SerDeIntoStateLike::Path(path, lazy) => {
+            SerDeIntoStateLike::Path(path, lazy, which_function) => {
                 let lazy = lazy.unwrap_or(false);
                 let state_holder: BoxDynIntoStateLike = Box::new(StateHolder::new(
                     move || {
-                        let string = how_to_get_string(path.clone())?;
+                        let function = how_to_get_string
+                            .get(which_function)
+                            .ok_or("Function not found")?;
+                        let string = function(path.clone())?;
                         let state: SerDeState = serde_yaml::from_str(&string)?;
-                        Ok(state.into_state_like(parent.clone(), how_to_get_string)??)
+                        Ok(state.into_state_like(parent.clone(), how_to_get_string.clone())??)
                     },
                     lazy,
                 )?);
