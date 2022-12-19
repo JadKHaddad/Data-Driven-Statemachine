@@ -45,7 +45,7 @@ pub struct OutputStatus {
     pub state_changed: bool,
     pub state: OptionRcRefCellDynStateLike,
     pub submit: bool,
-    pub output: String,
+    pub output: String, // this should be a struct containing title, description, options as vector and a help text
 }
 
 impl StatusLike for OutputStatus {
