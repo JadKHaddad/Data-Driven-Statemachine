@@ -6,7 +6,7 @@ type: !Options
   state: !Path 
   - states/state2.yaml  # path
   - false               # lazy
-  - 1                   # which function to use
+  - 0                   # which function to use
 - name: Option1
   submit: false
   state: !Inline

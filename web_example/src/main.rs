@@ -5,6 +5,8 @@ use statemachine::{
     state_like::{ContextState, OptionsState, StateHolder, StateLike},
     status::{InputStatus, OutputStatus},
 };
+use std::{cell::RefCell, fs::File, io::Read, rc::Rc, sync::Mutex};
+use std::{error::Error as StdError, sync::Arc};
 
 use futures_util::{SinkExt, StreamExt};
 use poem::{
@@ -66,28 +68,44 @@ fn index() -> Html<&'static str> {
 }
 
 #[handler]
-fn ws(
-    Path(name): Path<String>,
-    ws: WebSocket,
-    sender: Data<&tokio::sync::broadcast::Sender<String>>,
-) -> impl IntoResponse {
-    let sender = sender.clone();
-    let mut receiver = sender.subscribe();
+fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
+    println!("{} connected", name);
+    let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+    //user is connected
+    //create the welcome state
+    let how_to_get_string_local = |name: String| {
+        let mut file = File::open(&name).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        Ok(contents)
+    };
+    let functions: Vec<fn(String) -> Result<String, Box<dyn StdError>>> =
+        vec![how_to_get_string_local];
+
+    let state = SerDeState::create_from_yaml_str(functions, String::from("states/state.yaml"), 0)
+        .unwrap()
+        .unwrap();
+
+    let mut current_state_ref = state.borrow_mut();
+    let output_status = current_state_ref.output().unwrap();
+
+    sender.send(output_status.output).unwrap();
+    //TODO: well, Rc Refcell is not Send, so lets jsut create an Arc RwLock/Mutex version
+
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
-
         tokio::spawn(async move {
             while let Some(Ok(msg)) = stream.next().await {
                 if let Message::Text(text) = msg {
-                    if sender.send(format!("{}: {}", name, text)).is_err() {
-                        break;
-                    }
+                    // if sender.send(format!("{}: {}", name, text)).is_err() {
+                    //     break;
+                    // }
                 }
             }
         });
 
         tokio::spawn(async move {
-            while let Ok(msg) = receiver.recv().await {
+            while let Some(msg) = receiver.recv().await {
                 if sink.send(Message::Text(msg)).await.is_err() {
                     break;
                 }
@@ -98,15 +116,9 @@ fn ws(
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
-    if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "poem=debug");
-    }
     tracing_subscriber::fmt::init();
 
-    let app = Route::new().at("/", get(index)).at(
-        "/ws/:name",
-        get(ws.data(tokio::sync::broadcast::channel::<String>(32).0)),
-    );
+    let app = Route::new().at("/", get(index)).at("/ws/:name", get(ws));
 
     Server::new(TcpListener::bind("127.0.0.1:3000"))
         .run(app)
