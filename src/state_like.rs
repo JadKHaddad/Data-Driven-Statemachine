@@ -1,52 +1,148 @@
+use parking_lot::RwLock;
+
+use crate::context_like::Context;
 use crate::error::Error as StateError;
+use crate::option_like::StateOption;
 use crate::{
     collection::{Collection, ContextLikeCollection},
-    option_like::OptionLike,
     status::{InputStatus, OutputStatus, StatusLike},
-    ArcRwLockContextState, ArcRwLockDynStateLike, ArcRwLockOptionsState,
-    OptionArcRwLockDynStateLike, OptionBoxDynIntoStateLike, VecBoxDynContextLike,
-    VecBoxDynOptionLike,
+    ArcRwLockState, ArcRwLockContextState, ArcRwLockOptionsState,
+    OptionArcRwLockState, OptionBoxDynIntoStateLike,
 };
 use std::error::Error as StdError;
+use std::sync::Arc;
 
-pub trait StateLike {
-    fn get_name(&self) -> String;
-    fn get_description(&self) -> String;
-    fn get_parent(&self) -> OptionArcRwLockDynStateLike;
-    fn get_index(&self) -> usize;
-    fn get_options(&mut self) -> Option<&mut VecBoxDynOptionLike>;
-    fn get_contexts(&mut self) -> Option<&mut VecBoxDynContextLike>;
-    fn decrease_index(&mut self, amount: usize);
-    fn input(&mut self, input: String) -> Result<InputStatus, Box<dyn StdError>>;
-    fn output(&mut self) -> Result<OutputStatus, Box<dyn StdError>>;
-    fn back(&mut self) -> InputStatus;
-    fn collect(&mut self) -> Result<Result<Vec<Collection>, StateError>, Box<dyn StdError>>;
+pub enum State {
+    OptionsState(OptionsState),
+    ContextState(ContextState),
+}
+
+impl State {
+    pub fn get_name(&self) -> String {
+        match self {
+            State::OptionsState(state) => state.get_name(),
+            State::ContextState(state) => state.get_name(),
+        }
+    }
+
+    pub fn get_description(&self) -> String {
+        match self {
+            State::OptionsState(state) => state.get_description(),
+            State::ContextState(state) => state.get_description(),
+        }
+    }
+
+    pub fn get_parent(&self) -> OptionArcRwLockState {
+        match self {
+            State::OptionsState(state) => state.get_parent(),
+            State::ContextState(state) => state.get_parent(),
+        }
+    }
+
+    pub fn get_index(&self) -> usize {
+        match self {
+            State::OptionsState(state) => state.get_index(),
+            State::ContextState(state) => state.get_index(),
+        }
+    }
+
+    pub fn get_options(&mut self) -> Option<&mut Vec<StateOption>> {
+        match self {
+            State::OptionsState(state) => state.get_options(),
+            State::ContextState(state) => state.get_options(),
+        }
+    }
+
+    pub fn get_contexts(&mut self) -> Option<&mut Vec<Context>> {
+        match self {
+            State::OptionsState(state) => state.get_contexts(),
+            State::ContextState(state) => state.get_contexts(),
+        }
+    }
+
+    pub fn set_options(&mut self, options: Vec<StateOption>) {
+        match self {
+            State::OptionsState(state) => state.set_options(options),
+            State::ContextState(state) => state.set_options(options),
+        }
+    }
+
+    pub fn set_contexts(&mut self, contexts: Vec<Context>) {
+        match self {
+            State::OptionsState(state) => state.set_contexts(contexts),
+            State::ContextState(state) => state.set_contexts(contexts),
+        }
+    }
+
+    pub fn set_next(&mut self, next: OptionBoxDynIntoStateLike) {
+        match self {
+            State::OptionsState(state) => state.set_next(next),
+            State::ContextState(state) => state.set_next(next),
+        }
+    }
+
+    pub fn decrease_index(&mut self, amount: usize) {
+        match self {
+            State::OptionsState(state) => state.decrease_index(amount),
+            State::ContextState(state) => state.decrease_index(amount),
+        }
+    }
+
+    pub fn input(&mut self, input: String) -> Result<InputStatus, Box<dyn StdError>> {
+        match self {
+            State::OptionsState(state) => state.input(input),
+            State::ContextState(state) => state.input(input),
+        }
+    }
+
+    pub fn output(&mut self) -> Result<OutputStatus, Box<dyn StdError>> {
+        match self {
+            State::OptionsState(state) => state.output(),
+            State::ContextState(state) => state.output(),
+        }
+    }
+
+    pub fn back(&mut self) -> InputStatus {
+        match self {
+            State::OptionsState(state) => state.back(),
+            State::ContextState(state) => state.back(),
+        }
+    }
+
+    pub fn collect(&mut self) -> Result<Result<Vec<Collection>, StateError>, Box<dyn StdError>> {
+        match self {
+            State::OptionsState(state) => state.collect(),
+            State::ContextState(state) => state.collect(),
+        }
+    }
 }
 
 pub trait IntoStateLike {
-    fn into_state_like(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>>;
+    fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>>;
 }
 
 impl IntoStateLike for ArcRwLockOptionsState {
-    fn into_state_like(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
-        Ok(Some(self.clone()))
+    fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+        todo!();
+        //Ok(Some(Arc::new(RwLock::new(Box::new(*self.read().clone())))))
     }
 }
 
 impl IntoStateLike for ArcRwLockContextState {
-    fn into_state_like(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
-        Ok(Some(self.clone()))
+    fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+        todo!();
+        //Ok(Some(Arc::new(RwLock::new(Box::new(*self.read().clone())))))
     }
 }
 
-impl IntoStateLike for ArcRwLockDynStateLike {
-    fn into_state_like(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
+impl IntoStateLike for ArcRwLockState {
+    fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
         Ok(Some(self.clone()))
     }
 }
 
 impl IntoStateLike for StateHolder {
-    fn into_state_like(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
+    fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
         if let Some(state) = &self.state {
             dbg!("State already exists");
             return Ok(Some(state.clone()));
@@ -59,13 +155,13 @@ impl IntoStateLike for StateHolder {
 }
 
 pub struct StateHolder {
-    pub closure_state: Box<dyn Fn() -> Result<ArcRwLockDynStateLike, Box<dyn StdError>>>, //parent should be passed in
-    pub state: OptionArcRwLockDynStateLike,
+    pub closure_state: Box<dyn Fn() -> Result<ArcRwLockState, Box<dyn StdError>>>, //parent should be passed in
+    pub state: OptionArcRwLockState,
 }
 
 impl StateHolder {
     pub fn new(
-        closure_state: impl Fn() -> Result<ArcRwLockDynStateLike, Box<dyn StdError>> + 'static,
+        closure_state: impl Fn() -> Result<ArcRwLockState, Box<dyn StdError>> + 'static,
         lazy: bool,
     ) -> Result<StateHolder, Box<dyn StdError>> {
         let mut state_holder = StateHolder {
@@ -83,16 +179,17 @@ pub struct OptionsState {
     pub name: String,
     pub description: String,
     pub index: usize,
-    pub parent: OptionArcRwLockDynStateLike,
-    pub options: VecBoxDynOptionLike,
+    pub parent: OptionArcRwLockState,
+    pub options: Vec<StateOption>,
 }
+
 
 impl OptionsState {
     pub fn new(
         name: String,
         description: String,
-        parent: OptionArcRwLockDynStateLike,
-        options: VecBoxDynOptionLike,
+        parent: OptionArcRwLockState,
+        options: Vec<StateOption>,
     ) -> OptionsState {
         OptionsState {
             name,
@@ -104,13 +201,14 @@ impl OptionsState {
     }
 }
 
+
 pub struct ContextState {
     pub name: String,
     pub description: String,
     pub index: usize,
-    pub parent: OptionArcRwLockDynStateLike,
+    pub parent: OptionArcRwLockState,
     pub next: OptionBoxDynIntoStateLike,
-    pub contexts: VecBoxDynContextLike,
+    pub contexts: Vec<Context>,
     pub submit: bool,
     pub go_back: bool,
 }
@@ -119,9 +217,9 @@ impl ContextState {
     pub fn new(
         name: String,
         description: String,
-        parent: OptionArcRwLockDynStateLike,
+        parent: OptionArcRwLockState,
         next: OptionBoxDynIntoStateLike,
-        contexts: VecBoxDynContextLike,
+        contexts: Vec<Context>,
         submit: bool,
     ) -> ContextState {
         ContextState {
@@ -152,7 +250,7 @@ impl ContextState {
     }
 }
 
-impl StateLike for ContextState {
+impl ContextState {
     fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -161,7 +259,7 @@ impl StateLike for ContextState {
         self.description.clone()
     }
 
-    fn get_parent(&self) -> OptionArcRwLockDynStateLike {
+    fn get_parent(&self) -> OptionArcRwLockState {
         self.parent.clone()
     }
 
@@ -169,12 +267,24 @@ impl StateLike for ContextState {
         self.index
     }
 
-    fn get_options(&mut self) -> Option<&mut VecBoxDynOptionLike> {
+    fn get_options(&mut self) -> Option<&mut Vec<StateOption>> {
         None
     }
 
-    fn get_contexts(&mut self) -> Option<&mut VecBoxDynContextLike> {
+    fn get_contexts(&mut self) -> Option<&mut Vec<Context>> {
         Some(&mut self.contexts)
+    }
+
+    fn set_options(&mut self, options: Vec<StateOption>) {
+        //do nothing    
+    }
+
+    fn set_contexts(&mut self, contexts: Vec<Context>) {
+        self.contexts = contexts;
+    }
+
+    fn set_next(&mut self, next: OptionBoxDynIntoStateLike) {
+        self.next = next;
     }
 
     fn input(&mut self, input: String) -> Result<InputStatus, Box<dyn StdError>> {
@@ -311,7 +421,7 @@ impl StateLike for ContextState {
     }
 }
 
-impl StateLike for OptionsState {
+impl OptionsState {
     fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -320,7 +430,7 @@ impl StateLike for OptionsState {
         self.description.clone()
     }
 
-    fn get_parent(&self) -> OptionArcRwLockDynStateLike {
+    fn get_parent(&self) -> OptionArcRwLockState {
         self.parent.clone()
     }
 
@@ -328,12 +438,24 @@ impl StateLike for OptionsState {
         self.index
     }
 
-    fn get_options(&mut self) -> Option<&mut VecBoxDynOptionLike> {
+    fn get_options(&mut self) -> Option<&mut Vec<StateOption>> {
         Some(&mut self.options)
     }
 
-    fn get_contexts(&mut self) -> Option<&mut VecBoxDynContextLike> {
+    fn get_contexts(&mut self) -> Option<&mut Vec<Context>> {
         None
+    }
+
+    fn set_options(&mut self, options: Vec<StateOption>) {
+        self.options = options;
+    }
+
+    fn set_contexts(&mut self, _contexts: Vec<Context>) {
+        //do nothing
+    }
+
+    fn set_next(&mut self, next: OptionBoxDynIntoStateLike) {
+        //do nothing
     }
 
     fn input(&mut self, input: String) -> Result<InputStatus, Box<dyn StdError>> {
@@ -346,7 +468,7 @@ impl StateLike for OptionsState {
 
         fn on_input_recognized(
             status: &mut InputStatus,
-            option: &mut Box<dyn OptionLike>,
+            option: &mut StateOption,
         ) -> Result<(), Box<dyn StdError>> {
             status.state_changed = true;
             status.state = option.get_state()?;

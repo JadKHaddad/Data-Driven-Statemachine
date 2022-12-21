@@ -1,12 +1,12 @@
 use parking_lot::RwLock;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use context_like::ContextLike;
-use option_like::OptionLike;
+use context_like::Context;
+use option_like::StateOption;
 use state_like::ContextState;
 use state_like::IntoStateLike;
 use state_like::OptionsState;
-use state_like::StateLike;
+use state_like::State;
 
 pub type RcRefCellOptionsState = Rc<RefCell<OptionsState>>;
 pub type RcRefCellContextState = Rc<RefCell<ContextState>>;
@@ -14,28 +14,22 @@ pub type RcRefCellContextState = Rc<RefCell<ContextState>>;
 pub type ArcRwLockOptionsState = Arc<RwLock<OptionsState>>;
 pub type ArcRwLockContextState = Arc<RwLock<ContextState>>;
 
-pub type RcRefCellDynStateLike = Rc<RefCell<dyn StateLike>>;
-pub type OptionRcRefCellDynStateLike = Option<RcRefCellDynStateLike>;
+pub type ArcRwLockBoxOptionsState = Arc<RwLock<Box<OptionsState>>>;
+pub type ArcRwLockBoxContextState = Arc<RwLock<Box<ContextState>>>;
 
-pub type ArcRwLockDynStateLike = Arc<RwLock<dyn StateLike>>;
-pub type OptionArcRwLockDynStateLike = Option<ArcRwLockDynStateLike>;
+
+pub type ArcRwLockState = Arc<RwLock<State>>;
+pub type OptionArcRwLockState = Option<ArcRwLockState>;
 
 pub type RcRefCellDynIntoStateLike = Rc<RefCell<dyn IntoStateLike>>;
 pub type OptionRcRefCellDynIntoStateLike = Option<RcRefCellDynIntoStateLike>;
 
-pub type ArcRwLockDynIntoStateLike = Arc<RwLock<dyn IntoStateLike>>;
-pub type OptionArcRwLockDynIntoStateLike = Option<ArcRwLockDynIntoStateLike>;
+pub type ArcRwLockBoxDynIntoStateLike = Arc<RwLock<Box<dyn IntoStateLike>>>;
+pub type OptionArcRwLockBoxDynIntoStateLike = Option<ArcRwLockBoxDynIntoStateLike>;
 
 pub type BoxDynIntoStateLike = Box<dyn IntoStateLike>;
 pub type OptionBoxDynIntoStateLike = Option<BoxDynIntoStateLike>;
 
-pub type BoxDynOptionLike = Box<dyn OptionLike>;
-pub type VecBoxDynOptionLike = Vec<BoxDynOptionLike>;
-pub type OptionVecBoxDynOptionLike = Option<VecBoxDynOptionLike>;
-
-pub type BoxDynContextLike = Box<dyn ContextLike>;
-pub type VecBoxDynContextLike = Vec<BoxDynContextLike>;
-pub type OptionVecBoxDynContextLike = Option<VecBoxDynContextLike>;
 
 pub mod collection;
 pub mod context_like;

@@ -1,13 +1,46 @@
 use crate::error::Error as StateError;
-use crate::{collection::ContextLikeCollection, BoxDynIntoStateLike, OptionArcRwLockDynStateLike};
+use crate::{collection::ContextLikeCollection, BoxDynIntoStateLike, OptionArcRwLockState};
 use std::error::Error as StdError;
-pub trait ContextLike {
-    fn input(&mut self, input: String);
-    fn output(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>>;
-    fn get_name(&self) -> String;
-    fn get_value(&self) -> String;
-    fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>>;
+
+pub enum Context {
+    StateContext(StateContext),
+    StateOptionsContext(StateOptionsContext),
 }
+
+impl Context {
+    pub fn input(&mut self, input: String){
+        match self {
+            Context::StateContext(state_context) => state_context.input(input),
+            Context::StateOptionsContext(state_options_context) => state_options_context.input(input),
+        }
+    }
+    pub fn output(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+        match self {
+            Context::StateContext(state_context) => state_context.output(),
+            Context::StateOptionsContext(state_options_context) => state_options_context.output(),
+        }
+    }
+    pub fn get_name(&self) -> String {
+        match self {
+            Context::StateContext(state_context) => state_context.get_name(),
+            Context::StateOptionsContext(state_options_context) => state_options_context.get_name(),
+        }
+    }
+    pub fn get_value(&self) -> String {
+        match self {
+            Context::StateContext(state_context) => state_context.get_value(),
+            Context::StateOptionsContext(state_options_context) => state_options_context.get_value(),
+        }
+    }
+    pub fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
+        match self {
+            Context::StateContext(state_context) => state_context.collect(),
+            Context::StateOptionsContext(state_options_context) => state_options_context.collect(),
+        }
+    }
+
+}
+
 
 #[derive(Clone)]
 pub struct StateContext {
@@ -21,12 +54,12 @@ impl StateContext {
     }
 }
 
-impl ContextLike for StateContext {
+impl StateContext {
     fn input(&mut self, input: String) {
         self.value = input;
     }
 
-    fn output(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
+    fn output(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
         Ok(None)
     }
 
@@ -61,14 +94,11 @@ impl StateOptionsContext {
     pub fn new(name: String, value: String, state: BoxDynIntoStateLike) -> StateOptionsContext {
         StateOptionsContext { name, value, state }
     }
-}
-
-impl ContextLike for StateOptionsContext {
     fn input(&mut self, input: String) {
         self.value = input;
     }
 
-    fn output(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
+    fn output(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
         self.state.into_state_like()
     }
 
@@ -115,3 +145,4 @@ impl ContextLike for StateOptionsContext {
         Ok(Err(StateError::BadConstruction))
     }
 }
+

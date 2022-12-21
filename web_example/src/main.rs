@@ -86,17 +86,18 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
         .unwrap()
         .unwrap();
 
-    let mut current_state_ref = state.borrow_mut();
-    let output_status = current_state_ref.output().unwrap();
+    let c = state.clone();
+    let mut current_state_g = state.write();
+    let output_status = current_state_g.output().unwrap();
 
     sender.send(output_status.output).unwrap();
-    //TODO: well, Rc Refcell is not Send, so lets jsut create an Arc RwLock/Mutex version
 
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
         tokio::spawn(async move {
             while let Some(Ok(msg)) = stream.next().await {
                 if let Message::Text(text) = msg {
+                    //let s = c.clone();
                     // if sender.send(format!("{}: {}", name, text)).is_err() {
                     //     break;
                     // }
