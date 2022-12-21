@@ -3,15 +3,16 @@ use crate::{
     collection::{Collection, ContextLikeCollection},
     option_like::OptionLike,
     status::{InputStatus, OutputStatus, StatusLike},
-    OptionBoxDynIntoStateLike, OptionRcRefCellDynStateLike, RcRefCellContextState,
-    RcRefCellDynStateLike, RcRefCellOptionsState, VecBoxDynContextLike, VecBoxDynOptionLike,
+    ArcRwLockContextState, ArcRwLockDynStateLike, ArcRwLockOptionsState,
+    OptionArcRwLockDynStateLike, OptionBoxDynIntoStateLike, VecBoxDynContextLike,
+    VecBoxDynOptionLike,
 };
 use std::error::Error as StdError;
 
 pub trait StateLike {
     fn get_name(&self) -> String;
     fn get_description(&self) -> String;
-    fn get_parent(&self) -> OptionRcRefCellDynStateLike;
+    fn get_parent(&self) -> OptionArcRwLockDynStateLike;
     fn get_index(&self) -> usize;
     fn get_options(&mut self) -> Option<&mut VecBoxDynOptionLike>;
     fn get_contexts(&mut self) -> Option<&mut VecBoxDynContextLike>;
@@ -23,29 +24,29 @@ pub trait StateLike {
 }
 
 pub trait IntoStateLike {
-    fn into_state_like(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>>;
+    fn into_state_like(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>>;
 }
 
-impl IntoStateLike for RcRefCellOptionsState {
-    fn into_state_like(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+impl IntoStateLike for ArcRwLockOptionsState {
+    fn into_state_like(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
         Ok(Some(self.clone()))
     }
 }
 
-impl IntoStateLike for RcRefCellContextState {
-    fn into_state_like(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+impl IntoStateLike for ArcRwLockContextState {
+    fn into_state_like(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
         Ok(Some(self.clone()))
     }
 }
 
-impl IntoStateLike for RcRefCellDynStateLike {
-    fn into_state_like(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+impl IntoStateLike for ArcRwLockDynStateLike {
+    fn into_state_like(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
         Ok(Some(self.clone()))
     }
 }
 
 impl IntoStateLike for StateHolder {
-    fn into_state_like(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+    fn into_state_like(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
         if let Some(state) = &self.state {
             dbg!("State already exists");
             return Ok(Some(state.clone()));
@@ -58,13 +59,13 @@ impl IntoStateLike for StateHolder {
 }
 
 pub struct StateHolder {
-    pub closure_state: Box<dyn Fn() -> Result<RcRefCellDynStateLike, Box<dyn StdError>>>, //parent should be passed in
-    pub state: OptionRcRefCellDynStateLike,
+    pub closure_state: Box<dyn Fn() -> Result<ArcRwLockDynStateLike, Box<dyn StdError>>>, //parent should be passed in
+    pub state: OptionArcRwLockDynStateLike,
 }
 
 impl StateHolder {
     pub fn new(
-        closure_state: impl Fn() -> Result<RcRefCellDynStateLike, Box<dyn StdError>> + 'static,
+        closure_state: impl Fn() -> Result<ArcRwLockDynStateLike, Box<dyn StdError>> + 'static,
         lazy: bool,
     ) -> Result<StateHolder, Box<dyn StdError>> {
         let mut state_holder = StateHolder {
@@ -82,7 +83,7 @@ pub struct OptionsState {
     pub name: String,
     pub description: String,
     pub index: usize,
-    pub parent: OptionRcRefCellDynStateLike,
+    pub parent: OptionArcRwLockDynStateLike,
     pub options: VecBoxDynOptionLike,
 }
 
@@ -90,7 +91,7 @@ impl OptionsState {
     pub fn new(
         name: String,
         description: String,
-        parent: OptionRcRefCellDynStateLike,
+        parent: OptionArcRwLockDynStateLike,
         options: VecBoxDynOptionLike,
     ) -> OptionsState {
         OptionsState {
@@ -107,7 +108,7 @@ pub struct ContextState {
     pub name: String,
     pub description: String,
     pub index: usize,
-    pub parent: OptionRcRefCellDynStateLike,
+    pub parent: OptionArcRwLockDynStateLike,
     pub next: OptionBoxDynIntoStateLike,
     pub contexts: VecBoxDynContextLike,
     pub submit: bool,
@@ -118,7 +119,7 @@ impl ContextState {
     pub fn new(
         name: String,
         description: String,
-        parent: OptionRcRefCellDynStateLike,
+        parent: OptionArcRwLockDynStateLike,
         next: OptionBoxDynIntoStateLike,
         contexts: VecBoxDynContextLike,
         submit: bool,
@@ -160,7 +161,7 @@ impl StateLike for ContextState {
         self.description.clone()
     }
 
-    fn get_parent(&self) -> OptionRcRefCellDynStateLike {
+    fn get_parent(&self) -> OptionArcRwLockDynStateLike {
         self.parent.clone()
     }
 
@@ -291,7 +292,7 @@ impl StateLike for ContextState {
         };
 
         if let Some(parent) = &self.parent {
-            let mut parent_collections = parent.borrow_mut().collect()??;
+            let mut parent_collections = parent.write().collect()??;
             parent_collections.push(collection);
             return Ok(Ok(parent_collections));
         }
@@ -319,7 +320,7 @@ impl StateLike for OptionsState {
         self.description.clone()
     }
 
-    fn get_parent(&self) -> OptionRcRefCellDynStateLike {
+    fn get_parent(&self) -> OptionArcRwLockDynStateLike {
         self.parent.clone()
     }
 
@@ -399,7 +400,7 @@ impl StateLike for OptionsState {
         if let Some(parent) = &self.parent {
             status.state_changed = true;
             status.state = self.parent.clone();
-            parent.borrow_mut().decrease_index(2);
+            parent.write().decrease_index(2);
         }
 
         return status;
@@ -416,7 +417,7 @@ impl StateLike for OptionsState {
             };
 
             if let Some(parent) = &self.parent {
-                let mut parent_mute = parent.borrow_mut();
+                let mut parent_mute = parent.write();
                 collection.state_name = parent_mute.get_name();
                 let mut parent_collections = parent_mute.collect()??;
                 parent_collections.push(collection);

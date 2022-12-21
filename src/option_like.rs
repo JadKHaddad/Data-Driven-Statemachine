@@ -1,10 +1,10 @@
-use crate::{BoxDynIntoStateLike, OptionRcRefCellDynStateLike};
+use crate::{BoxDynIntoStateLike, OptionArcRwLockDynStateLike};
 use std::error::Error as StdError;
 
 pub trait OptionLike {
     fn input(&self, input: &String) -> bool;
     fn get_name(&self) -> String;
-    fn get_state(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>>;
+    fn get_state(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>>;
     fn get_submit(&self) -> bool;
 }
 
@@ -36,7 +36,7 @@ impl OptionLike for StateOption {
         self.name.clone()
     }
 
-    fn get_state(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+    fn get_state(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
         self.state.into_state_like()
     }
 

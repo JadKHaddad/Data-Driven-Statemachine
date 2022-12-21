@@ -1,9 +1,9 @@
 use crate::error::Error as StateError;
-use crate::{collection::ContextLikeCollection, BoxDynIntoStateLike, OptionRcRefCellDynStateLike};
+use crate::{collection::ContextLikeCollection, BoxDynIntoStateLike, OptionArcRwLockDynStateLike};
 use std::error::Error as StdError;
 pub trait ContextLike {
     fn input(&mut self, input: String);
-    fn output(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>>;
+    fn output(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>>;
     fn get_name(&self) -> String;
     fn get_value(&self) -> String;
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>>;
@@ -26,7 +26,7 @@ impl ContextLike for StateContext {
         self.value = input;
     }
 
-    fn output(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+    fn output(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
         Ok(None)
     }
 
@@ -68,7 +68,7 @@ impl ContextLike for StateOptionsContext {
         self.value = input;
     }
 
-    fn output(&mut self) -> Result<OptionRcRefCellDynStateLike, Box<dyn StdError>> {
+    fn output(&mut self) -> Result<OptionArcRwLockDynStateLike, Box<dyn StdError>> {
         self.state.into_state_like()
     }
 
@@ -82,7 +82,7 @@ impl ContextLike for StateOptionsContext {
 
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
         if let Some(state) = self.state.into_state_like()? {
-            let mut state = state.borrow_mut();
+            let mut state = state.write();
             let index = state.get_index();
             let options = state.get_options();
             if let Some(options) = options {
@@ -91,7 +91,7 @@ impl ContextLike for StateOptionsContext {
                     if index == len - 1 {
                         let in_state = option.get_state()?;
                         if let Some(in_state) = in_state {
-                            let mut in_state = in_state.borrow_mut();
+                            let mut in_state = in_state.write();
                             let contexts = in_state.get_contexts();
                             if let Some(contexts) = contexts {
                                 let context = contexts.get_mut(0);

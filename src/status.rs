@@ -1,14 +1,14 @@
-use crate::OptionRcRefCellDynStateLike;
+use crate::OptionArcRwLockDynStateLike;
 
 pub trait StatusLike {
     fn set_state_changed(&mut self, state_changed: bool);
-    fn set_state(&mut self, state: OptionRcRefCellDynStateLike);
+    fn set_state(&mut self, state: OptionArcRwLockDynStateLike);
     fn set_submit(&mut self, submit: bool);
 }
 
 pub struct InputStatus {
     pub state_changed: bool,
-    pub state: OptionRcRefCellDynStateLike,
+    pub state: OptionArcRwLockDynStateLike,
     pub submit: bool,
     pub input_recognized: bool,
 }
@@ -17,7 +17,7 @@ impl StatusLike for InputStatus {
     fn set_state_changed(&mut self, state_changed: bool) {
         self.state_changed = state_changed;
     }
-    fn set_state(&mut self, state: OptionRcRefCellDynStateLike) {
+    fn set_state(&mut self, state: OptionArcRwLockDynStateLike) {
         self.state = state;
     }
     fn set_submit(&mut self, submit: bool) {
@@ -30,7 +30,7 @@ impl std::fmt::Display for InputStatus {
         let mut name = String::new();
         if self.state_changed {
             if let Some(state) = &self.state {
-                name = state.borrow().get_name();
+                name = state.read().get_name();
             }
         }
         write!(
@@ -43,7 +43,7 @@ impl std::fmt::Display for InputStatus {
 
 pub struct OutputStatus {
     pub state_changed: bool,
-    pub state: OptionRcRefCellDynStateLike,
+    pub state: OptionArcRwLockDynStateLike,
     pub submit: bool,
     pub output: String, // this should be a struct containing title, description, options as vector and a help text
 }
@@ -52,7 +52,7 @@ impl StatusLike for OutputStatus {
     fn set_state_changed(&mut self, state_changed: bool) {
         self.state_changed = state_changed;
     }
-    fn set_state(&mut self, state: OptionRcRefCellDynStateLike) {
+    fn set_state(&mut self, state: OptionArcRwLockDynStateLike) {
         self.state = state;
     }
     fn set_submit(&mut self, submit: bool) {
@@ -65,7 +65,7 @@ impl std::fmt::Display for OutputStatus {
         let mut name = String::new();
         if self.state_changed {
             if let Some(state) = &self.state {
-                name = state.borrow().get_name();
+                name = state.read().get_name();
             }
         }
         write!(

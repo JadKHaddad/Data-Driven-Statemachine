@@ -1,16 +1,16 @@
 use crate::error::Error as StateError;
 use crate::state_like::StateHolder;
-use serde::{Deserialize, Serialize};
-use std::error::Error as StdError;
-use std::{cell::RefCell, rc::Rc};
-
 use crate::{
     context_like::{StateContext, StateOptionsContext},
     option_like::StateOption,
     state_like::{ContextState, OptionsState},
-    BoxDynContextLike, BoxDynIntoStateLike, BoxDynOptionLike, OptionRcRefCellDynStateLike,
-    RcRefCellDynStateLike, VecBoxDynContextLike,
+    ArcRwLockDynStateLike, BoxDynContextLike, BoxDynIntoStateLike, BoxDynOptionLike,
+    OptionArcRwLockDynStateLike, VecBoxDynContextLike,
 };
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use std::error::Error as StdError;
+use std::sync::Arc;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SerDeState {
@@ -22,12 +22,12 @@ pub struct SerDeState {
 impl SerDeState {
     pub fn into_state_like(
         self,
-        parent: OptionRcRefCellDynStateLike,
+        parent: OptionArcRwLockDynStateLike,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
-    ) -> Result<Result<RcRefCellDynStateLike, StateError>, Box<dyn StdError>> {
-        let state: RcRefCellDynStateLike = match self.r#type {
+    ) -> Result<Result<ArcRwLockDynStateLike, StateError>, Box<dyn StdError>> {
+        let state: ArcRwLockDynStateLike = match self.r#type {
             StateType::Context(contexts, next, submit) => {
-                let state = Rc::new(RefCell::new(ContextState::new(
+                let state = Arc::new(RwLock::new(ContextState::new(
                     self.name,
                     self.description,
                     parent,
@@ -40,17 +40,17 @@ impl SerDeState {
                     .into_iter()
                     .map(|x| x.into_context_like(Some(state.clone()), how_to_get_string.clone()))
                     .collect::<Result<Result<Vec<BoxDynContextLike>, StateError>,Box<dyn StdError>>>()??;
-                state.borrow_mut().contexts = contexts;
+                state.write().contexts = contexts;
 
                 if let Some(next) = next {
                     let next_state =
                         next.into_into_state_like(Some(state.clone()), how_to_get_string.clone())?;
-                    state.borrow_mut().next = Some(next_state?);
+                    state.write().next = Some(next_state?);
                 }
                 state
             }
             StateType::Options(options) => {
-                let state = Rc::new(RefCell::new(OptionsState::new(
+                let state = Arc::new(RwLock::new(OptionsState::new(
                     self.name,
                     self.description,
                     parent,
@@ -60,7 +60,7 @@ impl SerDeState {
                     .into_iter()
                     .map(|x| x.into_option_like(Some(state.clone()), None, how_to_get_string.clone()))
                     .collect::<Result<Result<Vec<BoxDynOptionLike>, StateError>,Box<dyn StdError>>>()??;
-                state.borrow_mut().options = options;
+                state.write().options = options;
                 state
             }
         };
@@ -71,7 +71,7 @@ impl SerDeState {
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
         name: String,
         which_function: usize,
-    ) -> Result<Result<RcRefCellDynStateLike, StateError>, Box<dyn StdError>> {
+    ) -> Result<Result<ArcRwLockDynStateLike, StateError>, Box<dyn StdError>> {
         let function = how_to_get_string
             .get(which_function)
             .ok_or("Function not found")?;
@@ -97,7 +97,7 @@ pub enum ContextType {
 impl SerDeContext {
     pub fn into_context_like(
         self,
-        parent_of_options_state: OptionRcRefCellDynStateLike,
+        parent_of_options_state: OptionArcRwLockDynStateLike,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
     ) -> Result<Result<BoxDynContextLike, StateError>, Box<dyn StdError>> {
         let value = self.value.unwrap_or_default();
@@ -111,11 +111,11 @@ impl SerDeContext {
             }
             ContextType::Options(options, given_option, given_question) => {
                 let name = match parent_of_options_state.clone() {
-                    Some(parent) => parent.borrow().get_name(),
+                    Some(parent) => parent.read().get_name(),
                     None => String::new(),
                 };
                 //create the valid options state
-                let state_for_valid_options = Rc::new(RefCell::new(OptionsState::new(
+                let state_for_valid_options = Arc::new(RwLock::new(OptionsState::new(
                     name.clone(),
                     self.name.clone(),
                     parent_of_options_state.clone(),
@@ -124,7 +124,7 @@ impl SerDeContext {
                 //the context will be automatically added to the state
                 //create a context state with only one context
                 if let Some(some_parent_of_options_state) = parent_of_options_state.clone() {
-                    let state_for_context = Rc::new(RefCell::new(ContextState::new(
+                    let state_for_context = Arc::new(RwLock::new(ContextState::new(
                         name.clone(),
                         self.name.clone(),
                         Some(state_for_valid_options.clone()),
@@ -160,7 +160,7 @@ impl SerDeContext {
                     options.push(Box::new(option));
 
                     //add the options
-                    state_for_valid_options.borrow_mut().options = options;
+                    state_for_valid_options.write().options = options;
 
                     //return the OptionsContext
                     return Ok(Ok(Box::new(StateOptionsContext {
@@ -185,8 +185,8 @@ pub struct SerDeOption {
 impl SerDeOption {
     pub fn into_option_like(
         self,
-        parent: OptionRcRefCellDynStateLike,
-        backup_state: OptionRcRefCellDynStateLike,
+        parent: OptionArcRwLockDynStateLike,
+        backup_state: OptionArcRwLockDynStateLike,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
     ) -> Result<Result<BoxDynOptionLike, StateError>, Box<dyn StdError>> {
         let submit = self.submit.unwrap_or(false);
@@ -220,7 +220,7 @@ pub enum SerDeIntoStateLike {
 impl SerDeIntoStateLike {
     pub fn into_into_state_like(
         self,
-        parent: OptionRcRefCellDynStateLike,
+        parent: OptionArcRwLockDynStateLike,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
     ) -> Result<Result<BoxDynIntoStateLike, StateError>, Box<dyn StdError>> {
         match self {
