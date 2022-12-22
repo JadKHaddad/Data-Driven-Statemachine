@@ -1,5 +1,6 @@
-use crate::{OptionArcRwLockState, State};
-use std::error::Error as StdError;
+use crate::state::State;
+use parking_lot::RwLock;
+use std::{error::Error as StdError, sync::Arc};
 
 #[derive(Clone)]
 pub struct StateOption {
@@ -16,6 +17,7 @@ impl StateOption {
             submit,
         }
     }
+
     pub fn input(&self, input: &String) -> bool {
         if &self.name == input {
             return true;
@@ -27,8 +29,8 @@ impl StateOption {
         self.name.clone()
     }
 
-    pub fn get_state(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
-        self.state.into_state_like()
+    pub fn get_state(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
+        self.state.into_state_sandwich()
     }
 
     pub fn get_submit(&self) -> bool {

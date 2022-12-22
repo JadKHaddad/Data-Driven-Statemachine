@@ -1,6 +1,8 @@
 use crate::error::Error as StateError;
-use crate::{collection::ContextLikeCollection, OptionArcRwLockState, State};
+use crate::{collection::ContextLikeCollection, state::State};
+use parking_lot::RwLock;
 use std::error::Error as StdError;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub enum Context {
@@ -17,18 +19,21 @@ impl Context {
             }
         }
     }
-    pub fn output(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+
+    pub fn output(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
         match self {
             Context::StateContext(state_context) => state_context.output(),
             Context::StateOptionsContext(state_options_context) => state_options_context.output(),
         }
     }
+
     pub fn get_name(&self) -> String {
         match self {
             Context::StateContext(state_context) => state_context.get_name(),
             Context::StateOptionsContext(state_options_context) => state_options_context.get_name(),
         }
     }
+
     pub fn get_value(&self) -> String {
         match self {
             Context::StateContext(state_context) => state_context.get_value(),
@@ -37,6 +42,7 @@ impl Context {
             }
         }
     }
+
     pub fn collect(
         &mut self,
     ) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
@@ -57,11 +63,12 @@ impl StateContext {
     pub fn new(name: String, value: String) -> StateContext {
         StateContext { name, value }
     }
+
     fn input(&mut self, input: String) {
         self.value = input;
     }
 
-    fn output(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+    fn output(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
         Ok(None)
     }
 
@@ -97,12 +104,13 @@ impl StateOptionsContext {
     pub fn new(name: String, value: String, state: State) -> StateOptionsContext {
         StateOptionsContext { name, value, state }
     }
+
     fn input(&mut self, input: String) {
         self.value = input;
     }
 
-    fn output(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
-        self.state.into_state_like()
+    fn output(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
+        self.state.into_state_sandwich()
     }
 
     fn get_name(&self) -> String {
@@ -114,7 +122,7 @@ impl StateOptionsContext {
     }
 
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
-        if let Some(state) = self.state.into_state_like()? {
+        if let Some(state) = self.state.into_state_sandwich()? {
             let mut state = state.write();
             let index = state.get_index();
             let options = state.get_options();

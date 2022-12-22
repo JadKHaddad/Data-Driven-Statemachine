@@ -1,14 +1,12 @@
-use parking_lot::RwLock;
-
-use crate::context_like::Context;
+use crate::context::Context;
 use crate::error::Error as StateError;
-use crate::option_like::StateOption;
-use crate::serde_state_like::SerDeState;
+use crate::option::StateOption;
+use crate::serde_state::SerDeState;
 use crate::{
     collection::{Collection, ContextLikeCollection},
     status::{InputStatus, OutputStatus, StatusLike},
-    OptionArcRwLockState,
 };
+use parking_lot::RwLock;
 use std::error::Error as StdError;
 use std::sync::Arc;
 
@@ -36,7 +34,7 @@ impl State {
         }
     }
 
-    pub fn get_parent(&self) -> OptionArcRwLockState {
+    pub fn get_parent(&self) -> Option<Arc<RwLock<State>>> {
         match self {
             State::OptionsState(state) => state.get_parent(),
             State::ContextState(state) => state.get_parent(),
@@ -129,27 +127,27 @@ impl State {
         }
     }
 
-    pub fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+    pub fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
         match self {
-            State::OptionsState(state) => state.into_state_like(),
-            State::ContextState(state) => state.into_state_like(),
-            State::StateHolder(state) => state.into_state_like(),
+            State::OptionsState(state) => state.into_state_sandwich(),
+            State::ContextState(state) => state.into_state_sandwich(),
+            State::StateHolder(state) => state.into_state_sandwich(),
         }
     }
 }
 
 #[derive(Clone)]
 pub struct StateHolder {
-    pub parent: OptionArcRwLockState,
+    pub parent: Option<Arc<RwLock<State>>>,
     pub path: String,
     pub how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
     pub which_function: usize,
-    pub state: OptionArcRwLockState,
+    pub state: Option<Arc<RwLock<State>>>,
 }
 
 impl StateHolder {
     pub fn new(
-        parent: OptionArcRwLockState,
+        parent: Option<Arc<RwLock<State>>>,
         path: String,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
         which_function: usize,
@@ -163,12 +161,12 @@ impl StateHolder {
             state: None,
         };
         if !lazy {
-            state_holder.into_state_like()?;
+            state_holder.into_state_sandwich()?;
         }
         Ok(state_holder)
     }
 
-    fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+    fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
         if let Some(state) = &self.state {
             dbg!("State already exists");
             return Ok(Some(state.clone()));
@@ -192,25 +190,8 @@ pub struct OptionsState {
     pub name: String,
     pub description: String,
     pub index: usize,
-    pub parent: OptionArcRwLockState,
+    pub parent: Option<Arc<RwLock<State>>>,
     pub options: Vec<StateOption>,
-}
-
-impl OptionsState {
-    pub fn new(
-        name: String,
-        description: String,
-        parent: OptionArcRwLockState,
-        options: Vec<StateOption>,
-    ) -> OptionsState {
-        OptionsState {
-            name,
-            description,
-            index: 0,
-            parent,
-            options,
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -218,7 +199,7 @@ pub struct ContextState {
     pub name: String,
     pub description: String,
     pub index: usize,
-    pub parent: OptionArcRwLockState,
+    pub parent: Option<Arc<RwLock<State>>>,
     pub next: Option<Box<State>>,
     pub contexts: Vec<Context>,
     pub submit: bool,
@@ -229,7 +210,7 @@ impl ContextState {
     pub fn new(
         name: String,
         description: String,
-        parent: OptionArcRwLockState,
+        parent: Option<Arc<RwLock<State>>>,
         next: Option<Box<State>>,
         contexts: Vec<Context>,
         submit: bool,
@@ -252,7 +233,7 @@ impl ContextState {
 
         if let Some(next) = &mut self.next {
             dbg!("Next state");
-            status.set_state(next.into_state_like()?);
+            status.set_state(next.into_state_sandwich()?);
             Ok(())
         } else {
             dbg!("No next state");
@@ -271,7 +252,7 @@ impl ContextState {
         self.description.clone()
     }
 
-    fn get_parent(&self) -> OptionArcRwLockState {
+    fn get_parent(&self) -> Option<Arc<RwLock<State>>> {
         self.parent.clone()
     }
 
@@ -428,13 +409,28 @@ impl ContextState {
         }
     }
 
-    pub fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+    pub fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
         let state = Arc::new(RwLock::new(State::ContextState(self.clone())));
         Ok(Some(state))
     }
 }
 
 impl OptionsState {
+    pub fn new(
+        name: String,
+        description: String,
+        parent: Option<Arc<RwLock<State>>>,
+        options: Vec<StateOption>,
+    ) -> OptionsState {
+        OptionsState {
+            name,
+            description,
+            index: 0,
+            parent,
+            options,
+        }
+    }
+
     fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -443,7 +439,7 @@ impl OptionsState {
         self.description.clone()
     }
 
-    fn get_parent(&self) -> OptionArcRwLockState {
+    fn get_parent(&self) -> Option<Arc<RwLock<State>>> {
         self.parent.clone()
     }
 
@@ -561,7 +557,7 @@ impl OptionsState {
         unreachable!();
     }
 
-    pub fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+    pub fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
         let state = Arc::new(RwLock::new(State::OptionsState(self.clone())));
         Ok(Some(state))
     }
