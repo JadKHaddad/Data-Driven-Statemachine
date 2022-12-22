@@ -1,11 +1,9 @@
 use statemachine::{
-    context_like::{StateContext, StateOptionsContext},
-    serde_state_like::*,
-    state_like::{ContextState, OptionsState, StateHolder},
+    serde_state::*,
     status::{InputStatus, OutputStatus},
 };
-use std::{cell::RefCell, fs::File, io::Read, rc::Rc, sync::Mutex};
-use std::{error::Error as StdError, sync::Arc};
+use std::error::Error as StdError;
+use std::{fs::File, io::Read};
 
 use futures_util::{SinkExt, StreamExt};
 use poem::{
@@ -13,9 +11,9 @@ use poem::{
     listener::TcpListener,
     web::{
         websocket::{Message, WebSocket},
-        Data, Html, Path,
+        Html, Path,
     },
-    EndpointExt, IntoResponse, Route, Server,
+    IntoResponse, Route, Server,
 };
 
 #[handler]
@@ -85,21 +83,68 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
         .unwrap()
         .unwrap();
 
-    let c = state.clone();
-    let mut current_state_g = state.write();
-    let output_status = current_state_g.output().unwrap();
-
-    sender.send(output_status.output).unwrap();
-
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
         tokio::spawn(async move {
+            let mut current_state = state.clone();
+            {
+                let mut current_state_g = state.write();
+                let output_status = current_state_g.output().unwrap();
+                sender.send(output_status.output).unwrap();
+            }
             while let Some(Ok(msg)) = stream.next().await {
-                if let Message::Text(text) = msg {
-                    let s = c.clone();
-                    // if sender.send(format!("{}: {}", name, text)).is_err() {
-                    //     break;
-                    // }
+                let output_status: OutputStatus;
+                let input_status: InputStatus;
+                {
+                    let mut current_state_g = current_state.write();
+                    output_status = current_state_g.output().unwrap();
+                }
+                if output_status.state_changed {
+                    if let Some(state) = output_status.state {
+                        current_state = state;
+                        continue;
+                    }
+                    if output_status.submit {
+                        println!("submitting\n");
+                        let collections = current_state.write().collect().unwrap().unwrap();
+                        for collection in collections {
+                            println!("{}:", collection.state_name);
+                            for context in collection.context_collections {
+                                println!("{}: {}", context.name, context.value);
+                            }
+                        }
+                        break;
+                    }
+                }
+                if sender.send(output_status.output).is_err() {
+                    break;
+                }
+                if let Message::Text(input) = msg {
+                    {
+                        let mut current_state_g = current_state.write();
+                        if input == "back" {
+                            input_status = current_state_g.back();
+                        } else {
+                            input_status = current_state_g.input(input).unwrap();
+                        }
+                    }
+                    if input_status.state_changed {
+                        if let Some(state) = input_status.state {
+                            current_state = state;
+                        }
+                        if input_status.submit {
+                            println!("submitting\n");
+                            let collections = current_state.write().collect().unwrap().unwrap();
+                            println!("{:?}", collections);
+                            for collection in collections {
+                                println!("{}:", collection.state_name);
+                                for context in collection.context_collections {
+                                    println!("{}: {}", context.name, context.value);
+                                }
+                            }
+                            break;
+                        }
+                    }
                 }
             }
         });
