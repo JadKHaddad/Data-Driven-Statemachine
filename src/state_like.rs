@@ -43,7 +43,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_index(),
             State::ContextState(state) => state.get_index(),
-            _ => unimplemented!(),
         }
     }
 
@@ -64,21 +63,21 @@ impl State {
     pub fn set_options(&mut self, options: Vec<StateOption>) {
         match self {
             State::OptionsState(state) => state.set_options(options),
-            State::ContextState(state) => state.set_options(options),
+            _ => unimplemented!(),
         }
     }
 
     pub fn set_contexts(&mut self, contexts: Vec<Context>) {
         match self {
-            State::OptionsState(state) => state.set_contexts(contexts),
             State::ContextState(state) => state.set_contexts(contexts),
+            _ => unimplemented!(),
         }
     }
 
     pub fn set_next(&mut self, next: Option<Arc<RwLock<IntoState>>>) {
         match self {
-            State::OptionsState(state) => state.set_next(next),
             State::ContextState(state) => state.set_next(next),
+            _ => unimplemented!(),
         }
     }
 
@@ -273,10 +272,6 @@ impl ContextState {
         Some(&mut self.contexts)
     }
 
-    fn set_options(&mut self, options: Vec<StateOption>) {
-        //do nothing
-    }
-
     fn set_contexts(&mut self, contexts: Vec<Context>) {
         self.contexts = contexts;
     }
@@ -451,14 +446,6 @@ impl OptionsState {
 
     fn set_options(&mut self, options: Vec<StateOption>) {
         self.options = options;
-    }
-
-    fn set_contexts(&mut self, _contexts: Vec<Context>) {
-        //do nothing
-    }
-
-    fn set_next(&mut self, next: Option<Arc<RwLock<IntoState>>>) {
-        //do nothing
     }
 
     fn input(&mut self, input: String) -> Result<InputStatus, Box<dyn StdError>> {

@@ -14,11 +14,8 @@ pub type ArcRwLockContextState = Arc<RwLock<ContextState>>;
 pub type ArcRwLockBoxOptionsState = Arc<RwLock<Box<OptionsState>>>;
 pub type ArcRwLockBoxContextState = Arc<RwLock<Box<ContextState>>>;
 
-
 pub type ArcRwLockState = Arc<RwLock<State>>;
 pub type OptionArcRwLockState = Option<ArcRwLockState>;
-
-
 
 pub mod collection;
 pub mod context_like;
