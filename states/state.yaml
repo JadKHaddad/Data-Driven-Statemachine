@@ -1,0 +1,42 @@
+name: Main
+description: Main description
+type: !Options
+- name: Option0
+  submit: false
+  state: !Path 
+  - states/state2.yaml  # path
+  - false               # lazy
+  - 1                   # which function to use
+- name: Option1
+  submit: false
+  state: !Inline
+    name: Child1
+    description: I am Child1 
+    type: !Context
+    - - name: How are you?
+        type: !Normal
+      - name: Where?
+        type: !Options
+        - - name: Here
+          - name: There
+        - Else where
+        - Where could it be?
+    - null
+    - false
+- name: Option2
+  submit: false
+  state: !Inline
+    name: Child2
+    description: I am a Child as well. I guess
+    type: !Context
+    - - name: Sup?
+        type: !Normal
+      - name: What's poppin?
+        type: !Options
+        - - name: Popcorn
+          - name: Not much
+          - name: Some other stuff
+        - Let me tell you something
+        - Hmm? so what is it?
+    - null
+    - false   

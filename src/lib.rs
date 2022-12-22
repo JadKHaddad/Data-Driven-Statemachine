@@ -1,8 +1,6 @@
 use parking_lot::RwLock;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use context_like::Context;
-use option_like::StateOption;
 use state_like::ContextState;
 use state_like::OptionsState;
 use state_like::State;

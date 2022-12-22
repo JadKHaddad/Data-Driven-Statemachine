@@ -6,8 +6,7 @@ use crate::option_like::StateOption;
 use crate::{
     collection::{Collection, ContextLikeCollection},
     status::{InputStatus, OutputStatus, StatusLike},
-    ArcRwLockState, ArcRwLockContextState, ArcRwLockOptionsState,
-    OptionArcRwLockState,
+    ArcRwLockState, OptionArcRwLockState,
 };
 use std::error::Error as StdError;
 use std::sync::Arc;
@@ -16,7 +15,6 @@ use std::sync::Arc;
 pub enum State {
     OptionsState(OptionsState),
     ContextState(ContextState),
-    StateHolder(StateHolder)
 }
 
 impl State {
@@ -24,7 +22,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_name(),
             State::ContextState(state) => state.get_name(),
-            _ => unimplemented!()
         }
     }
 
@@ -32,7 +29,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_description(),
             State::ContextState(state) => state.get_description(),
-            _ => unimplemented!()
         }
     }
 
@@ -40,7 +36,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_parent(),
             State::ContextState(state) => state.get_parent(),
-            _ => unimplemented!()
         }
     }
 
@@ -48,7 +43,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_index(),
             State::ContextState(state) => state.get_index(),
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 
@@ -56,7 +51,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_options(),
             State::ContextState(state) => state.get_options(),
-            _ => unimplemented!()
         }
     }
 
@@ -64,7 +58,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_contexts(),
             State::ContextState(state) => state.get_contexts(),
-            _ => unimplemented!()
         }
     }
 
@@ -72,7 +65,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.set_options(options),
             State::ContextState(state) => state.set_options(options),
-            _ => unimplemented!()
         }
     }
 
@@ -80,15 +72,13 @@ impl State {
         match self {
             State::OptionsState(state) => state.set_contexts(contexts),
             State::ContextState(state) => state.set_contexts(contexts),
-            _ => unimplemented!()
         }
     }
 
-    pub fn set_next(&mut self, next: Option<Box<State>>) {
+    pub fn set_next(&mut self, next: Option<Arc<RwLock<IntoState>>>) {
         match self {
             State::OptionsState(state) => state.set_next(next),
             State::ContextState(state) => state.set_next(next),
-            _ => unimplemented!()
         }
     }
 
@@ -96,7 +86,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.decrease_index(amount),
             State::ContextState(state) => state.decrease_index(amount),
-            _ => unimplemented!()
         }
     }
 
@@ -104,7 +93,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.input(input),
             State::ContextState(state) => state.input(input),
-            _ => unimplemented!()
         }
     }
 
@@ -112,7 +100,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.output(),
             State::ContextState(state) => state.output(),
-            _ => unimplemented!()
         }
     }
 
@@ -120,7 +107,6 @@ impl State {
         match self {
             State::OptionsState(state) => state.back(),
             State::ContextState(state) => state.back(),
-            _ => unimplemented!()
         }
     }
 
@@ -128,34 +114,45 @@ impl State {
         match self {
             State::OptionsState(state) => state.collect(),
             State::ContextState(state) => state.collect(),
-            _ => unimplemented!()
         }
     }
 
-    pub fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+    pub fn into_into_state(&self) -> IntoState {
         match self {
-            State::OptionsState(state) => state.into_state_like(),
-            State::ContextState(state) => state.into_state_like(),
-            State::StateHolder(state) => state.into_state_like(),
+            State::OptionsState(state) => IntoState::OptionsState(state.clone()),
+            State::ContextState(state) => IntoState::ContextState(state.clone()),
         }
     }
 }
 
+pub enum IntoState {
+    OptionsState(OptionsState),
+    ContextState(ContextState),
+    StateHolder(StateHolder),
+}
 
+impl IntoState {
+    pub fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+        match self {
+            IntoState::OptionsState(state) => state.into_state_like(),
+            IntoState::ContextState(state) => state.into_state_like(),
+            IntoState::StateHolder(state) => state.into_state_like(),
+        }
+    }
+}
 
-#[derive(Clone)]
 pub struct StateHolder {
-    pub closure_state: fn() -> Result<ArcRwLockState, Box<dyn StdError>>, //parent should be passed in
+    pub closure_state: Box<dyn Fn() -> Result<ArcRwLockState, Box<dyn StdError>>>, //parent should be passed in
     pub state: OptionArcRwLockState,
 }
 
 impl StateHolder {
     pub fn new(
-        closure_state: fn() -> Result<ArcRwLockState, Box<dyn StdError>>,
+        closure_state: impl Fn() -> Result<ArcRwLockState, Box<dyn StdError>> + 'static,
         lazy: bool,
     ) -> Result<StateHolder, Box<dyn StdError>> {
         let mut state_holder = StateHolder {
-            closure_state: closure_state,
+            closure_state: Box::new(closure_state),
             state: None,
         };
         if !lazy {
@@ -185,7 +182,6 @@ pub struct OptionsState {
     pub options: Vec<StateOption>,
 }
 
-
 impl OptionsState {
     pub fn new(
         name: String,
@@ -209,7 +205,7 @@ pub struct ContextState {
     pub description: String,
     pub index: usize,
     pub parent: OptionArcRwLockState,
-    pub next: Option<Box<State>>,
+    pub next: Option<Arc<RwLock<IntoState>>>,
     pub contexts: Vec<Context>,
     pub submit: bool,
     pub go_back: bool,
@@ -220,7 +216,7 @@ impl ContextState {
         name: String,
         description: String,
         parent: OptionArcRwLockState,
-        next: Option<Box<State>>,
+        next: Option<Arc<RwLock<IntoState>>>,
         contexts: Vec<Context>,
         submit: bool,
     ) -> ContextState {
@@ -242,7 +238,7 @@ impl ContextState {
 
         if let Some(next) = &mut self.next {
             dbg!("Next state");
-            status.set_state(next.into_state_like()?);
+            status.set_state(next.write().into_state_like()?);
             Ok(())
         } else {
             dbg!("No next state");
@@ -278,14 +274,14 @@ impl ContextState {
     }
 
     fn set_options(&mut self, options: Vec<StateOption>) {
-        //do nothing    
+        //do nothing
     }
 
     fn set_contexts(&mut self, contexts: Vec<Context>) {
         self.contexts = contexts;
     }
 
-    fn set_next(&mut self, next: Option<Box<State>>) {
+    fn set_next(&mut self, next: Option<Arc<RwLock<IntoState>>>) {
         self.next = next;
     }
 
@@ -461,7 +457,7 @@ impl OptionsState {
         //do nothing
     }
 
-    fn set_next(&mut self, next: Option<Box<State>>) {
+    fn set_next(&mut self, next: Option<Arc<RwLock<IntoState>>>) {
         //do nothing
     }
 
