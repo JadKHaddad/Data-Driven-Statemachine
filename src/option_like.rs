@@ -1,13 +1,15 @@
-use crate::{BoxDynIntoStateLike, OptionArcRwLockState};
+use crate::{State, OptionArcRwLockState};
 use std::error::Error as StdError;
+
+#[derive(Clone)]
 pub struct StateOption {
     pub name: String,
-    pub state: BoxDynIntoStateLike,
+    pub state: State,
     pub submit: bool,
 }
 
 impl StateOption {
-    pub fn new(name: String, state: BoxDynIntoStateLike, submit: bool) -> StateOption {
+    pub fn new(name: String, state: State, submit: bool) -> StateOption {
         StateOption {
             name,
             state,

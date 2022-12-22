@@ -7,14 +7,16 @@ use crate::{
     collection::{Collection, ContextLikeCollection},
     status::{InputStatus, OutputStatus, StatusLike},
     ArcRwLockState, ArcRwLockContextState, ArcRwLockOptionsState,
-    OptionArcRwLockState, OptionBoxDynIntoStateLike,
+    OptionArcRwLockState,
 };
 use std::error::Error as StdError;
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub enum State {
     OptionsState(OptionsState),
     ContextState(ContextState),
+    StateHolder(StateHolder)
 }
 
 impl State {
@@ -22,6 +24,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_name(),
             State::ContextState(state) => state.get_name(),
+            _ => unimplemented!()
         }
     }
 
@@ -29,6 +32,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_description(),
             State::ContextState(state) => state.get_description(),
+            _ => unimplemented!()
         }
     }
 
@@ -36,6 +40,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_parent(),
             State::ContextState(state) => state.get_parent(),
+            _ => unimplemented!()
         }
     }
 
@@ -43,6 +48,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_index(),
             State::ContextState(state) => state.get_index(),
+            _ => unimplemented!()
         }
     }
 
@@ -50,6 +56,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_options(),
             State::ContextState(state) => state.get_options(),
+            _ => unimplemented!()
         }
     }
 
@@ -57,6 +64,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.get_contexts(),
             State::ContextState(state) => state.get_contexts(),
+            _ => unimplemented!()
         }
     }
 
@@ -64,6 +72,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.set_options(options),
             State::ContextState(state) => state.set_options(options),
+            _ => unimplemented!()
         }
     }
 
@@ -71,13 +80,15 @@ impl State {
         match self {
             State::OptionsState(state) => state.set_contexts(contexts),
             State::ContextState(state) => state.set_contexts(contexts),
+            _ => unimplemented!()
         }
     }
 
-    pub fn set_next(&mut self, next: OptionBoxDynIntoStateLike) {
+    pub fn set_next(&mut self, next: Option<Box<State>>) {
         match self {
             State::OptionsState(state) => state.set_next(next),
             State::ContextState(state) => state.set_next(next),
+            _ => unimplemented!()
         }
     }
 
@@ -85,6 +96,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.decrease_index(amount),
             State::ContextState(state) => state.decrease_index(amount),
+            _ => unimplemented!()
         }
     }
 
@@ -92,6 +104,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.input(input),
             State::ContextState(state) => state.input(input),
+            _ => unimplemented!()
         }
     }
 
@@ -99,6 +112,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.output(),
             State::ContextState(state) => state.output(),
+            _ => unimplemented!()
         }
     }
 
@@ -106,6 +120,7 @@ impl State {
         match self {
             State::OptionsState(state) => state.back(),
             State::ContextState(state) => state.back(),
+            _ => unimplemented!()
         }
     }
 
@@ -113,35 +128,42 @@ impl State {
         match self {
             State::OptionsState(state) => state.collect(),
             State::ContextState(state) => state.collect(),
+            _ => unimplemented!()
+        }
+    }
+
+    pub fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+        match self {
+            State::OptionsState(state) => state.into_state_like(),
+            State::ContextState(state) => state.into_state_like(),
+            State::StateHolder(state) => state.into_state_like(),
         }
     }
 }
 
-pub trait IntoStateLike {
-    fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>>;
+
+
+#[derive(Clone)]
+pub struct StateHolder {
+    pub closure_state: fn() -> Result<ArcRwLockState, Box<dyn StdError>>, //parent should be passed in
+    pub state: OptionArcRwLockState,
 }
 
-impl IntoStateLike for ArcRwLockOptionsState {
-    fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
-        todo!();
-        //Ok(Some(Arc::new(RwLock::new(Box::new(*self.read().clone())))))
+impl StateHolder {
+    pub fn new(
+        closure_state: fn() -> Result<ArcRwLockState, Box<dyn StdError>>,
+        lazy: bool,
+    ) -> Result<StateHolder, Box<dyn StdError>> {
+        let mut state_holder = StateHolder {
+            closure_state: closure_state,
+            state: None,
+        };
+        if !lazy {
+            state_holder.into_state_like()?;
+        }
+        Ok(state_holder)
     }
-}
 
-impl IntoStateLike for ArcRwLockContextState {
-    fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
-        todo!();
-        //Ok(Some(Arc::new(RwLock::new(Box::new(*self.read().clone())))))
-    }
-}
-
-impl IntoStateLike for ArcRwLockState {
-    fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
-        Ok(Some(self.clone()))
-    }
-}
-
-impl IntoStateLike for StateHolder {
     fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
         if let Some(state) = &self.state {
             dbg!("State already exists");
@@ -154,27 +176,7 @@ impl IntoStateLike for StateHolder {
     }
 }
 
-pub struct StateHolder {
-    pub closure_state: Box<dyn Fn() -> Result<ArcRwLockState, Box<dyn StdError>>>, //parent should be passed in
-    pub state: OptionArcRwLockState,
-}
-
-impl StateHolder {
-    pub fn new(
-        closure_state: impl Fn() -> Result<ArcRwLockState, Box<dyn StdError>> + 'static,
-        lazy: bool,
-    ) -> Result<StateHolder, Box<dyn StdError>> {
-        let mut state_holder = StateHolder {
-            closure_state: Box::new(closure_state),
-            state: None,
-        };
-        if !lazy {
-            state_holder.into_state_like()?;
-        }
-        Ok(state_holder)
-    }
-}
-
+#[derive(Clone)]
 pub struct OptionsState {
     pub name: String,
     pub description: String,
@@ -201,13 +203,13 @@ impl OptionsState {
     }
 }
 
-
+#[derive(Clone)]
 pub struct ContextState {
     pub name: String,
     pub description: String,
     pub index: usize,
     pub parent: OptionArcRwLockState,
-    pub next: OptionBoxDynIntoStateLike,
+    pub next: Option<Box<State>>,
     pub contexts: Vec<Context>,
     pub submit: bool,
     pub go_back: bool,
@@ -218,7 +220,7 @@ impl ContextState {
         name: String,
         description: String,
         parent: OptionArcRwLockState,
-        next: OptionBoxDynIntoStateLike,
+        next: Option<Box<State>>,
         contexts: Vec<Context>,
         submit: bool,
     ) -> ContextState {
@@ -283,7 +285,7 @@ impl ContextState {
         self.contexts = contexts;
     }
 
-    fn set_next(&mut self, next: OptionBoxDynIntoStateLike) {
+    fn set_next(&mut self, next: Option<Box<State>>) {
         self.next = next;
     }
 
@@ -419,6 +421,11 @@ impl ContextState {
             self.index -= amount;
         }
     }
+
+    pub fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+        let state = Arc::new(RwLock::new(State::ContextState(self.clone())));
+        Ok(Some(state))
+    }
 }
 
 impl OptionsState {
@@ -454,7 +461,7 @@ impl OptionsState {
         //do nothing
     }
 
-    fn set_next(&mut self, next: OptionBoxDynIntoStateLike) {
+    fn set_next(&mut self, next: Option<Box<State>>) {
         //do nothing
     }
 
@@ -554,5 +561,10 @@ impl OptionsState {
 
     fn decrease_index(&mut self, _amount: usize) {
         unreachable!();
+    }
+
+    pub fn into_state_like(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
+        let state = Arc::new(RwLock::new(State::OptionsState(self.clone())));
+        Ok(Some(state))
     }
 }

@@ -1,7 +1,8 @@
 use crate::error::Error as StateError;
-use crate::{collection::ContextLikeCollection, BoxDynIntoStateLike, OptionArcRwLockState};
+use crate::{collection::ContextLikeCollection, State, OptionArcRwLockState};
 use std::error::Error as StdError;
 
+#[derive(Clone)]
 pub enum Context {
     StateContext(StateContext),
     StateOptionsContext(StateOptionsContext),
@@ -52,9 +53,6 @@ impl StateContext {
     pub fn new(name: String, value: String) -> StateContext {
         StateContext { name, value }
     }
-}
-
-impl StateContext {
     fn input(&mut self, input: String) {
         self.value = input;
     }
@@ -79,6 +77,7 @@ impl StateContext {
     }
 }
 
+#[derive(Clone)]
 pub struct StateOptionsContext {
     //this context will give an OptionsState when it is triggered.
     //the OptionsState has StateOptions and one special StateOption.
@@ -87,11 +86,11 @@ pub struct StateOptionsContext {
     //the next state of the ContextState would be the parent of the state that has this option
     pub name: String,
     pub value: String,
-    pub state: BoxDynIntoStateLike,
+    pub state: State,
 }
 
 impl StateOptionsContext {
-    pub fn new(name: String, value: String, state: BoxDynIntoStateLike) -> StateOptionsContext {
+    pub fn new(name: String, value: String, state: State) -> StateOptionsContext {
         StateOptionsContext { name, value, state }
     }
     fn input(&mut self, input: String) {

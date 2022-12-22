@@ -1,12 +1,10 @@
-use crate::ArcRwLockBoxDynIntoStateLike;
 use crate::error::Error as StateError;
 use crate::state_like::StateHolder;
 use crate::{
     context_like::{Context, StateContext, StateOptionsContext},
     option_like::StateOption,
     state_like::{ContextState, OptionsState, State},
-    ArcRwLockState, BoxDynIntoStateLike,
-    OptionArcRwLockState,
+    ArcRwLockState, OptionArcRwLockState,
 };
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -28,39 +26,34 @@ impl SerDeState {
     ) -> Result<Result<ArcRwLockState, StateError>, Box<dyn StdError>> {
         let state: ArcRwLockState = match self.r#type {
             StateType::Context(contexts, next, submit) => {
-                let state: ArcRwLockState = Arc::new(RwLock::new(State::ContextState(ContextState::new(
-                    self.name,
-                    self.description,
-                    parent,
-                    None,
-                    vec![],
-                    submit,
-                ))));
+                let state: ArcRwLockState = Arc::new(RwLock::new(State::ContextState(
+                    ContextState::new(self.name, self.description, parent, None, vec![], submit),
+                )));
 
                 let contexts: Vec<Context> = contexts
                     .into_iter()
                     .map(|x| x.into_context_like(Some(state.clone()), how_to_get_string.clone()))
-                    .collect::<Result<Result<Vec<Context>, StateError>,Box<dyn StdError>>>()??;
+                    .collect::<Result<Result<Vec<Context>, StateError>, Box<dyn StdError>>>()??;
                 state.write().set_contexts(contexts);
 
                 if let Some(next) = next {
                     let next_state =
                         next.into_into_state_like(Some(state.clone()), how_to_get_string.clone())?;
-                    state.write().set_next(Some(next_state?));
+                    state.write().set_next(Some(Box::new(next_state?)));
                 }
                 state
             }
             StateType::Options(options) => {
-                let state: ArcRwLockState = Arc::new(RwLock::new(State::OptionsState(OptionsState::new(
-                    self.name,
-                    self.description,
-                    parent,
-                    vec![],
-                ))));
+                let state: ArcRwLockState = Arc::new(RwLock::new(State::OptionsState(
+                    OptionsState::new(self.name, self.description, parent, vec![]),
+                )));
                 let options: Vec<StateOption> = options
                     .into_iter()
-                    .map(|x| x.into_option_like(Some(state.clone()), None, how_to_get_string.clone()))
-                    .collect::<Result<Result<Vec<StateOption>, StateError>,Box<dyn StdError>>>()??;
+                    .map(|x| {
+                        x.into_option_like(Some(state.clone()), None, how_to_get_string.clone())
+                    })
+                    .collect::<Result<Result<Vec<StateOption>, StateError>, Box<dyn StdError>>>(
+                    )??;
                 state.write().set_options(options);
                 state
             }
@@ -116,46 +109,45 @@ impl SerDeContext {
                     None => String::new(),
                 };
                 //create the valid options state
-                let state_for_valid_options: ArcRwLockState = Arc::new(RwLock::new(State::OptionsState(OptionsState::new(
-                    name.clone(),
-                    self.name.clone(),
-                    parent_of_options_state.clone(),
-                    vec![],
-                ))));
+                let state_for_valid_options: ArcRwLockState =
+                    Arc::new(RwLock::new(State::OptionsState(OptionsState::new(
+                        name.clone(),
+                        self.name.clone(),
+                        parent_of_options_state.clone(),
+                        vec![],
+                    ))));
                 //the context will be automatically added to the state
                 //create a context state with only one context
                 if let Some(some_parent_of_options_state) = parent_of_options_state.clone() {
-                    let state_for_context: ArcRwLockState = Arc::new(RwLock::new(State::ContextState(ContextState::new(
-                        name.clone(),
-                        self.name.clone(),
-                        Some(state_for_valid_options.clone()),
-                        Some(Box::new(some_parent_of_options_state.clone())),
-                        vec![Context::StateContext(StateContext {
-                            name: given_question,
-                            value: String::new(),
-                        })],
-                        false,
-                    ))));
-                    
+                    let state_for_context: ArcRwLockState =
+                        Arc::new(RwLock::new(State::ContextState(ContextState::new(
+                            name.clone(),
+                            self.name.clone(),
+                            Some(state_for_valid_options.clone()),
+                            Some(Box::new(some_parent_of_options_state.read().clone())),
+                            vec![Context::StateContext(StateContext {
+                                name: given_question,
+                                value: String::new(),
+                            })],
+                            false,
+                        ))));
+
                     //create the option that holds the context state
                     let option =
-                        StateOption::new(given_option, Box::new(state_for_context), false);
+                        StateOption::new(given_option, state_for_context.read().clone(), false);
 
                     //create the valid options
-                    let mut options: Vec<StateOption> =
-                        options
-                            .into_iter()
-                            .map(|x| {
-                                x.into_option_like(
-                                    Some(state_for_valid_options.clone()),
-                                    parent_of_options_state.clone(),
-                                    how_to_get_string.clone(),
-                                )
-                            })
-                            .collect::<Result<
-                                Result<Vec<StateOption>, StateError>,
-                                Box<dyn StdError>,
-                            >>()??;
+                    let mut options: Vec<StateOption> = options
+                        .into_iter()
+                        .map(|x| {
+                            x.into_option_like(
+                                Some(state_for_valid_options.clone()),
+                                parent_of_options_state.clone(),
+                                how_to_get_string.clone(),
+                            )
+                        })
+                        .collect::<Result<Result<Vec<StateOption>, StateError>, Box<dyn StdError>>>(
+                        )??;
 
                     //add the option that holds the context state
                     options.push(option);
@@ -167,7 +159,7 @@ impl SerDeContext {
                     return Ok(Ok(Context::StateOptionsContext(StateOptionsContext {
                         name: self.name,
                         value,
-                        state: Box::new(state_for_valid_options),
+                        state: state_for_valid_options.read().clone(),
                     })));
                 }
                 Ok(Err(StateError::BadConstruction))
@@ -200,7 +192,7 @@ impl SerDeOption {
         if let Some(rc_refcell_state) = backup_state {
             return Ok(Ok(StateOption::new(
                 self.name,
-                Box::new(rc_refcell_state),
+                rc_refcell_state.read().clone(),
                 submit,
             )));
         }
@@ -223,26 +215,32 @@ impl SerDeIntoStateLike {
         self,
         parent: OptionArcRwLockState,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
-    ) -> Result<Result<BoxDynIntoStateLike, StateError>, Box<dyn StdError>> {
+    ) -> Result<Result<State, StateError>, Box<dyn StdError>> {
         match self {
             SerDeIntoStateLike::Inline(state) => {
-                let state: BoxDynIntoStateLike =
-                    Box::new(state.into_state_like(parent, how_to_get_string)??);
+                let state: State = state
+                    .into_state_like(parent, how_to_get_string)??
+                    .read()
+                    .clone();
                 Ok(Ok(state))
             }
             SerDeIntoStateLike::Path(path, lazy, which_function) => {
                 let lazy = lazy.unwrap_or(false);
-                let state_holder: BoxDynIntoStateLike = Box::new(StateHolder::new(
-                    move || {
-                        let function = how_to_get_string
-                            .get(which_function)
-                            .ok_or("Function not found")?;
-                        let string = function(path.clone())?;
-                        let state: SerDeState = serde_yaml::from_str(&string)?;
-                        Ok(state.into_state_like(parent.clone(), how_to_get_string.clone())??)
-                    },
+                todo!();
+                let f = move || {
+                    let function = how_to_get_string
+                        .get(which_function)
+                        .ok_or("Function not found")?;
+
+                    let string = function(path.clone())?;
+                    let state: SerDeState = serde_yaml::from_str(&string)?;
+                    Ok(state.into_state_like(parent.clone(), how_to_get_string.clone())??)
+                };
+                let state_holder = State::StateHolder(StateHolder::new(
+                    f,
                     lazy,
                 )?);
+
                 Ok(Ok(state_holder))
             }
         }
