@@ -1,8 +1,7 @@
 use statemachine::{
     context_like::{StateContext, StateOptionsContext},
-    option_like::{OptionLike, StateOption},
     serde_state_like::*,
-    state_like::{ContextState, OptionsState, StateHolder, StateLike},
+    state_like::{ContextState, OptionsState, StateHolder},
     status::{InputStatus, OutputStatus},
 };
 use std::{cell::RefCell, fs::File, io::Read, rc::Rc, sync::Mutex};
@@ -97,7 +96,7 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
         tokio::spawn(async move {
             while let Some(Ok(msg)) = stream.next().await {
                 if let Message::Text(text) = msg {
-                    //let s = c.clone();
+                    let s = c.clone();
                     // if sender.send(format!("{}: {}", name, text)).is_err() {
                     //     break;
                     // }

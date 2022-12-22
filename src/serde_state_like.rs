@@ -1,5 +1,5 @@
 use crate::error::Error as StateError;
-use crate::state_like::{IntoState, StateHolder};
+use crate::state_like::StateHolder;
 use crate::{
     context_like::{Context, StateContext, StateOptionsContext},
     option_like::StateOption,
@@ -39,9 +39,7 @@ impl SerDeState {
                 if let Some(next) = next {
                     let next_state =
                         next.into_into_state_like(Some(state.clone()), how_to_get_string.clone())?;
-                    state
-                        .write()
-                        .set_next(Some(Arc::new(RwLock::new(next_state?))));
+                    state.write().set_next(Some(Box::new(next_state?)));
                 }
                 state
             }
@@ -126,9 +124,7 @@ impl SerDeContext {
                             name.clone(),
                             self.name.clone(),
                             Some(state_for_valid_options.clone()),
-                            Some(Arc::new(RwLock::new(
-                                some_parent_of_options_state.read().into_into_state(),
-                            ))),
+                            Some(Box::new(some_parent_of_options_state.read().clone())),
                             vec![Context::StateContext(StateContext {
                                 name: given_question,
                                 value: String::new(),
@@ -137,11 +133,8 @@ impl SerDeContext {
                         ))));
 
                     //create the option that holds the context state
-                    let option = StateOption::new(
-                        given_option,
-                        Arc::new(RwLock::new(state_for_context.read().into_into_state())),
-                        false,
-                    );
+                    let option =
+                        StateOption::new(given_option, state_for_context.read().clone(), false);
 
                     //create the valid options
                     let mut options: Vec<StateOption> = options
@@ -166,9 +159,7 @@ impl SerDeContext {
                     return Ok(Ok(Context::StateOptionsContext(StateOptionsContext {
                         name: self.name,
                         value,
-                        state: Arc::new(RwLock::new(
-                            state_for_valid_options.read().into_into_state(),
-                        )),
+                        state: state_for_valid_options.read().clone(),
                     })));
                 }
                 Ok(Err(StateError::BadConstruction))
@@ -195,17 +186,13 @@ impl SerDeOption {
 
         if let Some(state) = self.state {
             let state = state.into_into_state_like(parent, how_to_get_string)??;
-            return Ok(Ok(StateOption::new(
-                self.name,
-                Arc::new(RwLock::new(state)),
-                submit,
-            )));
+            return Ok(Ok(StateOption::new(self.name, state, submit)));
         }
 
         if let Some(rc_refcell_state) = backup_state {
             return Ok(Ok(StateOption::new(
                 self.name,
-                Arc::new(RwLock::new(rc_refcell_state.read().into_into_state())),
+                rc_refcell_state.read().clone(),
                 submit,
             )));
         }
@@ -228,30 +215,24 @@ impl SerDeIntoStateLike {
         self,
         parent: OptionArcRwLockState,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
-    ) -> Result<Result<IntoState, StateError>, Box<dyn StdError>> {
+    ) -> Result<Result<State, StateError>, Box<dyn StdError>> {
         match self {
             SerDeIntoStateLike::Inline(state) => {
-                let state = state
+                let state: State = state
                     .into_state_like(parent, how_to_get_string)??
                     .read()
                     .clone();
-                Ok(Ok(state.into_into_state()))
+                Ok(Ok(state))
             }
             SerDeIntoStateLike::Path(path, lazy, which_function) => {
                 let lazy = lazy.unwrap_or(false);
-                let state_holder = IntoState::StateHolder(StateHolder::new(
-                    move || {
-                        let function = how_to_get_string
-                            .get(which_function)
-                            .ok_or("Function not found")?;
-
-                        let string = function(path.clone())?;
-                        let state: SerDeState = serde_yaml::from_str(&string)?;
-                        Ok(state.into_state_like(parent.clone(), how_to_get_string.clone())??)
-                    },
+                let state_holder = State::StateHolder(StateHolder::new(
+                    parent,
+                    path,
+                    how_to_get_string,
+                    which_function,
                     lazy,
                 )?);
-
                 Ok(Ok(state_holder))
             }
         }

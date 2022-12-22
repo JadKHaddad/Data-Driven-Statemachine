@@ -1,10 +1,6 @@
-use parking_lot::RwLock;
-
 use crate::error::Error as StateError;
-use crate::state_like::IntoState;
-use crate::{collection::ContextLikeCollection, OptionArcRwLockState};
+use crate::{collection::ContextLikeCollection, OptionArcRwLockState, State};
 use std::error::Error as StdError;
-use std::sync::Arc;
 
 #[derive(Clone)]
 pub enum Context {
@@ -94,11 +90,11 @@ pub struct StateOptionsContext {
     //the next state of the ContextState would be the parent of the state that has this option
     pub name: String,
     pub value: String,
-    pub state: Arc<RwLock<IntoState>>,
+    pub state: State,
 }
 
 impl StateOptionsContext {
-    pub fn new(name: String, value: String, state: Arc<RwLock<IntoState>>) -> StateOptionsContext {
+    pub fn new(name: String, value: String, state: State) -> StateOptionsContext {
         StateOptionsContext { name, value, state }
     }
     fn input(&mut self, input: String) {
@@ -106,7 +102,7 @@ impl StateOptionsContext {
     }
 
     fn output(&mut self) -> Result<OptionArcRwLockState, Box<dyn StdError>> {
-        self.state.write().into_state_like()
+        self.state.into_state_like()
     }
 
     fn get_name(&self) -> String {
@@ -118,7 +114,7 @@ impl StateOptionsContext {
     }
 
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
-        if let Some(state) = self.state.write().into_state_like()? {
+        if let Some(state) = self.state.into_state_like()? {
             let mut state = state.write();
             let index = state.get_index();
             let options = state.get_options();
