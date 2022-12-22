@@ -53,14 +53,12 @@ impl State {
     pub fn get_options(&mut self) -> Option<&mut Vec<StateOption>> {
         match self {
             State::OptionsState(state) => state.get_options(),
-            State::ContextState(state) => state.get_options(),
             _ => unimplemented!(),
         }
     }
 
     pub fn get_contexts(&mut self) -> Option<&mut Vec<Context>> {
         match self {
-            State::OptionsState(state) => state.get_contexts(),
             State::ContextState(state) => state.get_contexts(),
             _ => unimplemented!(),
         }
@@ -89,7 +87,6 @@ impl State {
 
     pub fn decrease_index(&mut self, amount: usize) {
         match self {
-            State::OptionsState(state) => state.decrease_index(amount),
             State::ContextState(state) => state.decrease_index(amount),
             _ => unimplemented!(),
         }
@@ -258,10 +255,6 @@ impl ContextState {
 
     fn get_index(&self) -> usize {
         self.index
-    }
-
-    fn get_options(&mut self) -> Option<&mut Vec<StateOption>> {
-        None
     }
 
     fn get_contexts(&mut self) -> Option<&mut Vec<Context>> {
@@ -451,10 +444,6 @@ impl OptionsState {
         Some(&mut self.options)
     }
 
-    fn get_contexts(&mut self) -> Option<&mut Vec<Context>> {
-        None
-    }
-
     fn set_options(&mut self, options: Vec<StateOption>) {
         self.options = options;
     }
@@ -551,10 +540,6 @@ impl OptionsState {
         }
         //something went wrong
         Ok(Err(StateError::BadConstruction))
-    }
-
-    fn decrease_index(&mut self, _amount: usize) {
-        unreachable!();
     }
 
     pub fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
