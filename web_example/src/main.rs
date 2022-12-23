@@ -2,7 +2,8 @@ use statemachine::{
     serde_state::*,
     status::{InputStatus, OutputStatus},
 };
-use std::error::Error as StdError;
+
+use std::{error::Error as StdError};
 use std::{fs::File, io::Read};
 
 use futures_util::{SinkExt, StreamExt};
@@ -87,12 +88,7 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
         let (mut sink, mut stream) = socket.split();
         tokio::spawn(async move {
             let mut current_state = state.clone();
-            {
-                let mut current_state_g = state.write();
-                let output_status = current_state_g.output().unwrap();
-                sender.send(output_status.output).unwrap();
-            }
-            while let Some(Ok(msg)) = stream.next().await {
+            loop {
                 let output_status: OutputStatus;
                 let input_status: InputStatus;
                 {
@@ -105,44 +101,37 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
                         continue;
                     }
                     if output_status.submit {
-                        println!("submitting\n");
                         let collections = current_state.write().collect().unwrap().unwrap();
-                        for collection in collections {
-                            println!("{}:", collection.state_name);
-                            for context in collection.context_collections {
-                                println!("{}: {}", context.name, context.value);
-                            }
-                        }
+                        println!("{:?}", collections);
+                        let _ = sender.send(format!("Thank you for your input!"));
                         break;
                     }
                 }
-                if sender.send(output_status.output).is_err() {
+
+                if sender.send(output_status.output.clone()).is_err() {
                     break;
                 }
-                if let Message::Text(input) = msg {
-                    {
-                        let mut current_state_g = current_state.write();
-                        if input == "back" {
-                            input_status = current_state_g.back();
-                        } else {
-                            input_status = current_state_g.input(input).unwrap();
-                        }
-                    }
-                    if input_status.state_changed {
-                        if let Some(state) = input_status.state {
-                            current_state = state;
-                        }
-                        if input_status.submit {
-                            println!("submitting\n");
-                            let collections = current_state.write().collect().unwrap().unwrap();
-                            println!("{:?}", collections);
-                            for collection in collections {
-                                println!("{}:", collection.state_name);
-                                for context in collection.context_collections {
-                                    println!("{}: {}", context.name, context.value);
-                                }
+
+                if let Some(Ok(msg)) = stream.next().await {
+                    if let Message::Text(input) = msg {
+                        {
+                            let mut current_state_g = current_state.write();
+                            if input == "back" {
+                                input_status = current_state_g.back();
+                            } else {
+                                input_status = current_state_g.input(input).unwrap();
                             }
-                            break;
+                        }
+                        if input_status.state_changed {
+                            if let Some(state) = input_status.state {
+                                current_state = state;
+                            }
+                            if input_status.submit {
+                                let collections = current_state.write().collect().unwrap().unwrap();
+                                println!("{:?}", collections);
+                                let _ = sender.send(format!("Thank you for your input!"));
+                                break;
+                            }
                         }
                     }
                 }
@@ -155,6 +144,7 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
                     break;
                 }
             }
+            println!("dropped");
         });
     })
 }
