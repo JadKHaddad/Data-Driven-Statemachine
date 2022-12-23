@@ -80,7 +80,7 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
     let functions: Vec<fn(String) -> Result<String, Box<dyn StdError>>> =
         vec![how_to_get_string_local];
 
-    let state = SerDeState::create_from_yaml_str(functions, String::from("states/state.yaml"), 0)
+    let state = SerDeState::create_from_yaml_str(functions, String::from("../states/state.yaml"), 0)
         .unwrap()
         .unwrap();
 
