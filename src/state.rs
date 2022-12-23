@@ -2,6 +2,7 @@ use crate::context::Context;
 use crate::error::Error as StateError;
 use crate::option::StateOption;
 use crate::serde_state::SerDeState;
+use crate::status::Output;
 use crate::{
     collection::{Collection, ContextLikeCollection},
     status::{InputStatus, OutputStatus, StatusLike},
@@ -238,9 +239,7 @@ impl ContextState {
             Ok(())
         }
     }
-}
 
-impl ContextState {
     fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -299,7 +298,7 @@ impl ContextState {
             state_changed: false,
             state: None,
             submit: false,
-            output: String::new(),
+            output: None,
         };
 
         if self.go_back {
@@ -325,26 +324,23 @@ impl ContextState {
                     state_changed: true,
                     state: next_state,
                     submit: false,
-                    output: String::new(),
+                    output: None,
                 });
             }
         }
 
-        //normal output for contexts
-        let mut output = format!("[{}]\n", self.name);
+        let output = Output::new(
+            self.get_name(),
+            self.get_description(),
+            vec![self.contexts[self.index].get_name()],
+            String::new(),
+        );
 
-        //add description if index is 0
-        if self.index == 0 {
-            output.push_str(&format!("{}\n", self.description));
-        }
-        if let Some(context) = self.contexts.get(self.index) {
-            output.push_str(&format!("{}\n", context.get_name()));
-        }
         Ok(OutputStatus {
             state_changed: false,
             state: None,
             submit: false,
-            output,
+            output: Some(output),
         })
     }
 
@@ -370,6 +366,7 @@ impl ContextState {
         return status;
     }
 
+    //TODO: fix this
     fn collect(&mut self) -> Result<Result<Vec<Collection>, StateError>, Box<dyn StdError>> {
         let collection = Collection {
             state_name: self.get_name(),
@@ -488,17 +485,20 @@ impl OptionsState {
         return Ok(status);
     }
 
+    //TODO: fix this
     fn output(&mut self) -> Result<OutputStatus, Box<dyn StdError>> {
-        let mut output = format!("[{}]\n", self.name);
-        output.push_str(&format!("{}\n", self.description));
-        for (index, option) in self.options.iter().enumerate() {
-            output.push_str(&format!("{}. {}\n", index + 1, option.get_name()));
-        }
+        let output = Output::new(
+            self.get_name(),
+            self.get_description(),
+            self.options.iter().map(|x| x.get_name()).collect(),
+            String::new(),
+        );
+
         Ok(OutputStatus {
-            output,
             state_changed: false,
             submit: false,
             state: None,
+            output: Some(output),
         })
     }
 

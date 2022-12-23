@@ -3,7 +3,7 @@ use statemachine::{
     status::{InputStatus, OutputStatus},
 };
 
-use std::{error::Error as StdError};
+use std::error::Error as StdError;
 use std::{fs::File, io::Read};
 
 use futures_util::{SinkExt, StreamExt};
@@ -80,9 +80,10 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
     let functions: Vec<fn(String) -> Result<String, Box<dyn StdError>>> =
         vec![how_to_get_string_local];
 
-    let state = SerDeState::create_from_yaml_str(functions, String::from("../states/state.yaml"), 0)
-        .unwrap()
-        .unwrap();
+    let state =
+        SerDeState::create_from_yaml_str(functions, String::from("../states/state.yaml"), 0)
+            .unwrap()
+            .unwrap();
 
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
@@ -108,7 +109,7 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
                     }
                 }
 
-                if sender.send(output_status.output.clone()).is_err() {
+                if sender.send(format!("{:?}", output_status.output)).is_err() {
                     break;
                 }
 

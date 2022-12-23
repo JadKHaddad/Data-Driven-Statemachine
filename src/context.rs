@@ -80,6 +80,7 @@ impl StateContext {
         self.value.clone()
     }
 
+    //TODO: fix this
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
         Ok(Ok(ContextLikeCollection::new(
             self.name.clone(),
@@ -121,6 +122,7 @@ impl StateOptionsContext {
         self.value.clone()
     }
 
+    //TODO: fix this
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
         if let Some(state) = self.state.into_state_sandwich()? {
             let mut state = state.write();

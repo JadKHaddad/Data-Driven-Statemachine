@@ -43,11 +43,40 @@ impl std::fmt::Display for InputStatus {
     }
 }
 
+#[derive(Default, Debug)]
+pub struct Output {
+    pub title: String,
+    pub description: String,
+    pub options: Vec<String>,
+    pub help: String,
+}
+
+impl Output {
+    pub fn new(title: String, description: String, options: Vec<String>, help: String) -> Self {
+        Self {
+            title,
+            description,
+            options,
+            help,
+        }
+    }
+}
+
+impl std::fmt::Display for Output {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "title: {}\ndescription: {}\noptions: {:?}\nhelp: {}",
+            self.title, self.description, self.options, self.help
+        )
+    }
+}
+
 pub struct OutputStatus {
     pub state_changed: bool,
     pub state: Option<Arc<RwLock<State>>>,
     pub submit: bool,
-    pub output: String, // this should be a struct containing title, description, options as vector and a help text
+    pub output: Option<Output>,
 }
 
 impl StatusLike for OutputStatus {
@@ -70,10 +99,14 @@ impl std::fmt::Display for OutputStatus {
                 name = state.read().get_name();
             }
         }
+        let mut output = String::from("None");
+        if let Some(out) = &self.output {
+            output = format!("{}", out);
+        }
         write!(
             f,
             "state_changed: {}\nsubmit: {}\nstate name: {}\noutput: {}",
-            self.state_changed, self.submit, name, self.output
+            self.state_changed, self.submit, name, output
         )
     }
 }

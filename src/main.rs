@@ -1,7 +1,7 @@
 use parking_lot::RwLock;
 use statemachine::{
-    serde_state_like::*,
-    state_like::State,
+    serde_state::*,
+    state::State,
     status::{InputStatus, OutputStatus},
 };
 
@@ -16,8 +16,6 @@ fn run(root: Arc<RwLock<State>>) {
             {
                 let mut current_state_ref = current_state.write();
                 output_status = current_state_ref.output().unwrap();
-                println!("{}", output_status);
-                println!("------------");
             }
 
             if output_status.state_changed {
@@ -28,17 +26,12 @@ fn run(root: Arc<RwLock<State>>) {
                 if output_status.submit {
                     println!("submitting\n");
                     let collections = current_state.write().collect().unwrap().unwrap();
-                    for collection in collections {
-                        println!("{}:", collection.state_name);
-                        for context in collection.context_collections {
-                            println!("{}: {}", context.name, context.value);
-                        }
-                    }
+                    println!("{:?}", collections);
                     break;
                 }
             }
 
-            println!("{}", output_status.output);
+            println!("{:?}", output_status.output);
 
             let mut current_state_ref = current_state.write();
 
@@ -70,12 +63,6 @@ fn run(root: Arc<RwLock<State>>) {
                 println!("submitting\n");
                 let collections = current_state.write().collect().unwrap().unwrap();
                 println!("{:?}", collections);
-                for collection in collections {
-                    println!("{}:", collection.state_name);
-                    for context in collection.context_collections {
-                        println!("{}: {}", context.name, context.value);
-                    }
-                }
                 break;
             }
         }
