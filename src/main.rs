@@ -24,7 +24,10 @@ fn run(root: Arc<RwLock<State>>) {
                     continue;
                 }
                 if output_status.submit {
-                    println!("submitting\n");
+                    println!(
+                        "submitting on output from state {}\n",
+                        current_state.read().get_name()
+                    );
                     let collections = current_state.write().collect().unwrap().unwrap();
                     println!("{:?}", collections);
                     break;
@@ -50,9 +53,6 @@ fn run(root: Arc<RwLock<State>>) {
             } else {
                 input_status = current_state_ref.input(input).unwrap();
             }
-            println!("------------");
-            println!("{}", input_status);
-            println!("------------");
         }
 
         if input_status.state_changed {
@@ -60,7 +60,10 @@ fn run(root: Arc<RwLock<State>>) {
                 current_state = state;
             }
             if input_status.submit {
-                println!("submitting\n");
+                println!(
+                    "submitting on input from state {}\n",
+                    current_state.read().get_name()
+                );
                 let collections = current_state.write().collect().unwrap().unwrap();
                 println!("{:?}", collections);
                 break;

@@ -79,7 +79,7 @@ impl State {
         }
     }
 
-    pub fn set_next(&mut self, next: Option<Box<State>>) {
+    pub fn set_next(&mut self, next: Option<Arc<RwLock<State>>>) {
         match self {
             State::ContextState(state) => state.set_next(next),
             _ => unimplemented!(),
@@ -198,7 +198,7 @@ pub struct ContextState {
     pub description: String,
     pub index: usize,
     pub parent: Option<Arc<RwLock<State>>>,
-    pub next: Option<Box<State>>,
+    pub next: Option<Arc<RwLock<State>>>,
     pub contexts: Vec<Context>,
     pub submit: bool,
     pub go_back: bool,
@@ -209,7 +209,7 @@ impl ContextState {
         name: String,
         description: String,
         parent: Option<Arc<RwLock<State>>>,
-        next: Option<Box<State>>,
+        next: Option<Arc<RwLock<State>>>,
         contexts: Vec<Context>,
         submit: bool,
     ) -> ContextState {
@@ -231,7 +231,7 @@ impl ContextState {
 
         if let Some(next) = &mut self.next {
             dbg!("Next state");
-            status.set_state(next.into_state_sandwich()?);
+            status.set_state(next.write().into_state_sandwich()?);
             Ok(())
         } else {
             dbg!("No next state");
@@ -264,7 +264,7 @@ impl ContextState {
         self.contexts = contexts;
     }
 
-    fn set_next(&mut self, next: Option<Box<State>>) {
+    fn set_next(&mut self, next: Option<Arc<RwLock<State>>>) {
         self.next = next;
     }
 
@@ -366,7 +366,6 @@ impl ContextState {
         return status;
     }
 
-    //TODO: fix this
     fn collect(&mut self) -> Result<Result<Vec<Collection>, StateError>, Box<dyn StdError>> {
         let collection = Collection {
             state_name: self.get_name(),
@@ -485,7 +484,6 @@ impl OptionsState {
         return Ok(status);
     }
 
-    //TODO: fix this
     fn output(&mut self) -> Result<OutputStatus, Box<dyn StdError>> {
         let output = Output::new(
             self.get_name(),

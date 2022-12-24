@@ -5,12 +5,12 @@ use std::{error::Error as StdError, sync::Arc};
 #[derive(Clone)]
 pub struct StateOption {
     pub name: String,
-    pub state: State,
+    pub state: Arc<RwLock<State>>,
     pub submit: bool,
 }
 
 impl StateOption {
-    pub fn new(name: String, state: State, submit: bool) -> StateOption {
+    pub fn new(name: String, state: Arc<RwLock<State>>, submit: bool) -> StateOption {
         StateOption {
             name,
             state,
@@ -30,7 +30,7 @@ impl StateOption {
     }
 
     pub fn get_state(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
-        self.state.into_state_sandwich()
+        self.state.write().into_state_sandwich()
     }
 
     pub fn get_submit(&self) -> bool {

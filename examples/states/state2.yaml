@@ -9,5 +9,13 @@ type: !Context
           - name: Not really
         - Others
         - Others
-    - null
-    - false
+    - false   # submit
+    - !Inline # next
+      name: Child1
+      description: I am a Child of after some options.
+      type: !Context
+      - - name: How you like it now?
+          type: !Normal
+      - false
+      - null
+    

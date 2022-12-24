@@ -2,6 +2,7 @@ use crate::error::Error as StateError;
 use crate::{collection::ContextLikeCollection, state::State};
 use parking_lot::RwLock;
 use std::error::Error as StdError;
+use std::fmt::Display;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -80,7 +81,6 @@ impl StateContext {
         self.value.clone()
     }
 
-    //TODO: fix this
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
         Ok(Ok(ContextLikeCollection::new(
             self.name.clone(),
@@ -122,7 +122,6 @@ impl StateOptionsContext {
         self.value.clone()
     }
 
-    //TODO: fix this
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
         if let Some(state) = self.state.into_state_sandwich()? {
             let mut state = state.write();
@@ -156,5 +155,38 @@ impl StateOptionsContext {
         }
         //something went wrong
         Ok(Err(StateError::BadConstruction))
+    }
+}
+
+impl Display for Context {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Context::StateContext(state_context) => write!(f, "{}", state_context),
+            Context::StateOptionsContext(state_options_context) => {
+                write!(f, "{}", state_options_context)
+            }
+        }
+    }
+}
+
+impl Display for StateContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "StateContext: Name: {}, Value: {}",
+            self.name, self.value
+        )
+    }
+}
+
+impl Display for StateOptionsContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "StateOptionsContext: Name: {}, Value: {} | Parent: {}",
+            self.name,
+            self.value,
+            self.state.get_name()
+        )
     }
 }

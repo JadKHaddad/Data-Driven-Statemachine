@@ -24,7 +24,7 @@ impl SerDeState {
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
     ) -> Result<Result<Arc<RwLock<State>>, StateError>, Box<dyn StdError>> {
         let state: Arc<RwLock<State>> = match self.r#type {
-            StateType::Context(contexts, next, submit) => {
+            StateType::Context(contexts, submit, next) => {
                 let state: Arc<RwLock<State>> = Arc::new(RwLock::new(State::ContextState(
                     ContextState::new(self.name, self.description, parent, None, vec![], submit),
                 )));
@@ -38,7 +38,9 @@ impl SerDeState {
                 if let Some(next) = next {
                     let next_state =
                         next.into_into_state_like(Some(state.clone()), how_to_get_string.clone())?;
-                    state.write().set_next(Some(Box::new(next_state?)));
+                    state
+                        .write()
+                        .set_next(Some(Arc::new(RwLock::new(next_state?))));
                 }
                 state
             }
@@ -123,7 +125,7 @@ impl SerDeContext {
                             name.clone(),
                             self.name.clone(),
                             Some(state_for_valid_options.clone()),
-                            Some(Box::new(some_parent_of_options_state.read().clone())),
+                            Some(some_parent_of_options_state.clone()),
                             vec![Context::StateContext(StateContext {
                                 name: given_question,
                                 value: String::new(),
@@ -132,8 +134,7 @@ impl SerDeContext {
                         ))));
 
                     //create the option that holds the context state
-                    let option =
-                        StateOption::new(given_option, state_for_context.read().clone(), false);
+                    let option = StateOption::new(given_option, state_for_context.clone(), false);
 
                     //create the valid options
                     let mut options: Vec<StateOption> = options
@@ -185,15 +186,15 @@ impl SerDeOption {
 
         if let Some(state) = self.state {
             let state = state.into_into_state_like(parent, how_to_get_string)??;
-            return Ok(Ok(StateOption::new(self.name, state, submit)));
-        }
-
-        if let Some(rc_refcell_state) = backup_state {
             return Ok(Ok(StateOption::new(
                 self.name,
-                rc_refcell_state.read().clone(),
+                Arc::new(RwLock::new(state)),
                 submit,
             )));
+        }
+
+        if let Some(state_g) = backup_state {
+            return Ok(Ok(StateOption::new(self.name, state_g.clone(), submit)));
         }
         Ok(Err(StateError::BadConstruction))
     }
@@ -243,7 +244,7 @@ pub enum StateType {
     Options(Vec<SerDeOption>),
     Context(
         Vec<SerDeContext>,               /*context*/
-        Option<Box<SerDeIntoStateLike>>, /*next state*/
         bool,                            /*submit*/
+        Option<Box<SerDeIntoStateLike>>, /*next state*/
     ),
 }

@@ -21,8 +21,8 @@ type: !Options
           - name: There
         - Else where
         - Where could it be?
-    - null
     - false
+    - null
 - name: Option2
   submit: false
   state: !Inline
@@ -38,5 +38,30 @@ type: !Options
           - name: Some other stuff
         - Let me tell you something
         - Hmm? so what is it?
-    - null
-    - false   
+    - false
+    - null   
+- name: Option3
+  submit: false
+  state: !Inline
+    name: Child3
+    description: I am a Child.
+    type: !Context
+    - - name: Sup?
+        type: !Normal
+      - name: What's poppin?
+        type: !Normal
+      - name: Wacha doin?
+        type: !Normal
+    - false   # submit
+    - !Inline # next
+      name: Child31
+      description: I am a Child of a Child.
+      type: !Context
+      - - name: Hello?
+          type: !Normal
+        - name: How are you?
+          type: !Normal
+      - false
+      - null
+      
+        
