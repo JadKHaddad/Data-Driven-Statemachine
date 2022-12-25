@@ -98,11 +98,11 @@ pub struct StateOptionsContext {
     //the next state of the ContextState would be the parent of the state that has this option
     pub name: String,
     pub value: String,
-    pub state: State,
+    pub state: Arc<RwLock<State>>,
 }
 
 impl StateOptionsContext {
-    pub fn new(name: String, value: String, state: State) -> StateOptionsContext {
+    pub fn new(name: String, value: String, state: Arc<RwLock<State>>) -> StateOptionsContext {
         StateOptionsContext { name, value, state }
     }
 
@@ -111,7 +111,7 @@ impl StateOptionsContext {
     }
 
     fn output(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
-        self.state.into_state_sandwich()
+        self.state.write().into_state_sandwich()
     }
 
     fn get_name(&self) -> String {
@@ -123,7 +123,7 @@ impl StateOptionsContext {
     }
 
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
-        if let Some(state) = self.state.into_state_sandwich()? {
+        if let Some(state) = self.state.write().into_state_sandwich()? {
             let mut state = state.write();
             let index = state.get_index();
             let options = state.get_options();
@@ -186,7 +186,7 @@ impl Display for StateOptionsContext {
             "StateOptionsContext: Name: {}, Value: {} | Parent: {}",
             self.name,
             self.value,
-            self.state.get_name()
+            self.state.read().get_name()
         )
     }
 }

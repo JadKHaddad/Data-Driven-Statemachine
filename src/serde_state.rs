@@ -18,7 +18,7 @@ pub struct SerDeState {
 }
 
 impl SerDeState {
-    pub fn into_state_like(
+    pub fn into_state(
         self,
         parent: Option<Arc<RwLock<State>>>,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
@@ -31,16 +31,16 @@ impl SerDeState {
 
                 let contexts: Vec<Context> = contexts
                     .into_iter()
-                    .map(|x| x.into_context_like(Some(state.clone()), how_to_get_string.clone()))
+                    .map(|x| x.into_context(Some(state.clone()), how_to_get_string.clone()))
                     .collect::<Result<Result<Vec<Context>, StateError>, Box<dyn StdError>>>()??;
                 state.write().set_contexts(contexts);
 
                 if let Some(next) = next {
                     let next_state =
-                        next.into_into_state_like(Some(state.clone()), how_to_get_string.clone())?;
+                        next.into_into_state(Some(state.clone()), how_to_get_string.clone())?;
                     state
                         .write()
-                        .set_next(Some(Arc::new(RwLock::new(next_state?))));
+                        .set_next(Some(next_state?));
                 }
                 state
             }
@@ -51,7 +51,7 @@ impl SerDeState {
                 let options: Vec<StateOption> = options
                     .into_iter()
                     .map(|x| {
-                        x.into_option_like(Some(state.clone()), None, how_to_get_string.clone())
+                        x.into_option(Some(state.clone()), None, how_to_get_string.clone())
                     })
                     .collect::<Result<Result<Vec<StateOption>, StateError>, Box<dyn StdError>>>(
                     )??;
@@ -72,7 +72,7 @@ impl SerDeState {
             .ok_or("Function not found")?;
         let string = function(name)?;
         let state: SerDeState = serde_yaml::from_str(&string)?;
-        Ok(state.into_state_like(None, how_to_get_string)?)
+        Ok(state.into_state(None, how_to_get_string)?)
     }
 }
 
@@ -90,7 +90,7 @@ pub enum ContextType {
 }
 
 impl SerDeContext {
-    pub fn into_context_like(
+    pub fn into_context(
         self,
         parent_of_options_state: Option<Arc<RwLock<State>>>,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
@@ -112,7 +112,7 @@ impl SerDeContext {
                 //create the valid options state
                 let state_for_valid_options: Arc<RwLock<State>> =
                     Arc::new(RwLock::new(State::OptionsState(OptionsState::new(
-                        name.clone(),
+                        String::from("OPTIONS"),//name.clone(),
                         self.name.clone(),
                         parent_of_options_state.clone(),
                         vec![],
@@ -140,7 +140,7 @@ impl SerDeContext {
                     let mut options: Vec<StateOption> = options
                         .into_iter()
                         .map(|x| {
-                            x.into_option_like(
+                            x.into_option(
                                 Some(state_for_valid_options.clone()),
                                 parent_of_options_state.clone(),
                                 how_to_get_string.clone(),
@@ -159,7 +159,7 @@ impl SerDeContext {
                     return Ok(Ok(Context::StateOptionsContext(StateOptionsContext {
                         name: self.name,
                         value,
-                        state: state_for_valid_options.read().clone(),
+                        state: state_for_valid_options.clone(),
                     })));
                 }
                 Ok(Err(StateError::BadConstruction))
@@ -172,11 +172,11 @@ impl SerDeContext {
 pub struct SerDeOption {
     pub name: String,
     pub submit: Option<bool>,
-    pub state: Option<SerDeIntoStateLike>,
+    pub state: Option<SerDeIntoState>,
 }
 
 impl SerDeOption {
-    pub fn into_option_like(
+    pub fn into_option(
         self,
         parent: Option<Arc<RwLock<State>>>,
         backup_state: Option<Arc<RwLock<State>>>,
@@ -185,10 +185,10 @@ impl SerDeOption {
         let submit = self.submit.unwrap_or(false);
 
         if let Some(state) = self.state {
-            let state = state.into_into_state_like(parent, how_to_get_string)??;
+            let state = state.into_into_state(parent, how_to_get_string)??;
             return Ok(Ok(StateOption::new(
                 self.name,
-                Arc::new(RwLock::new(state)),
+                state,
                 submit,
             )));
         }
@@ -196,12 +196,13 @@ impl SerDeOption {
         if let Some(state_g) = backup_state {
             return Ok(Ok(StateOption::new(self.name, state_g.clone(), submit)));
         }
+        
         Ok(Err(StateError::BadConstruction))
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum SerDeIntoStateLike {
+pub enum SerDeIntoState {
     Inline(SerDeState),
     Path(
         String,       /*path to state*/
@@ -210,21 +211,19 @@ pub enum SerDeIntoStateLike {
     ),
 }
 
-impl SerDeIntoStateLike {
-    pub fn into_into_state_like(
+impl SerDeIntoState {
+    pub fn into_into_state(
         self,
         parent: Option<Arc<RwLock<State>>>,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
-    ) -> Result<Result<State, StateError>, Box<dyn StdError>> {
+    ) -> Result<Result<Arc<RwLock<State>>, StateError>, Box<dyn StdError>> {
         match self {
-            SerDeIntoStateLike::Inline(state) => {
-                let state: State = state
-                    .into_state_like(parent, how_to_get_string)??
-                    .read()
-                    .clone();
+            SerDeIntoState::Inline(state) => {
+                let state = state
+                    .into_state(parent, how_to_get_string)??;
                 Ok(Ok(state))
             }
-            SerDeIntoStateLike::Path(path, lazy, which_function) => {
+            SerDeIntoState::Path(path, lazy, which_function) => {
                 let lazy = lazy.unwrap_or(false);
                 let state_holder = State::StateHolder(StateHolder::new(
                     parent,
@@ -233,7 +232,7 @@ impl SerDeIntoStateLike {
                     which_function,
                     lazy,
                 )?);
-                Ok(Ok(state_holder))
+                Ok(Ok(Arc::new(RwLock::new(state_holder))))
             }
         }
     }
@@ -243,8 +242,8 @@ impl SerDeIntoStateLike {
 pub enum StateType {
     Options(Vec<SerDeOption>),
     Context(
-        Vec<SerDeContext>,               /*context*/
-        bool,                            /*submit*/
-        Option<Box<SerDeIntoStateLike>>, /*next state*/
+        Vec<SerDeContext>,           /*context*/
+        bool,                        /*submit*/
+        Option<Box<SerDeIntoState>>, /*next state*/
     ),
 }
