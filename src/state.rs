@@ -11,7 +11,6 @@ use parking_lot::RwLock;
 use std::error::Error as StdError;
 use std::sync::Arc;
 
-#[derive(Clone)]
 pub enum State {
     OptionsState(OptionsState),
     ContextState(ContextState),
@@ -89,7 +88,7 @@ impl State {
     pub fn decrease_index(&mut self, amount: usize) {
         match self {
             State::ContextState(state) => state.decrease_index(amount),
-            _ => {},
+            _ => {}
         }
     }
 
@@ -134,7 +133,6 @@ impl State {
     }
 }
 
-#[derive(Clone)]
 pub struct StateHolder {
     pub parent: Option<Arc<RwLock<State>>>,
     pub path: String,
@@ -165,9 +163,9 @@ impl StateHolder {
     }
 
     fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
-        if let Some(state) = &self.state {
+        if let Some(_) = &self.state {
             dbg!("State already exists");
-            return Ok(Some(state.clone()));
+            return Ok(self.state.clone());
         }
         dbg!("State creating");
         let function = self
@@ -176,14 +174,12 @@ impl StateHolder {
             .ok_or("Function not found")?;
         let string = function(self.path.clone())?;
         let state: SerDeState = serde_yaml::from_str(&string)?;
-        let state =
-            state.into_state(self.parent.clone(), self.how_to_get_string.clone())??;
+        let state = state.into_state(self.parent.clone(), self.how_to_get_string.clone())??;
         self.state = Some(state.clone());
         Ok(Some(state))
     }
 }
 
-#[derive(Clone)]
 pub struct OptionsState {
     pub name: String,
     pub description: String,
@@ -192,7 +188,6 @@ pub struct OptionsState {
     pub options: Vec<StateOption>,
 }
 
-#[derive(Clone)]
 pub struct ContextState {
     pub name: String,
     pub description: String,
@@ -202,7 +197,6 @@ pub struct ContextState {
     pub contexts: Vec<Context>,
     pub submit: bool,
     pub go_back: bool,
-    pub used: bool,
 }
 
 impl ContextState {
@@ -223,7 +217,6 @@ impl ContextState {
             contexts,
             submit,
             go_back: false,
-            used: false,
         }
     }
 
@@ -233,7 +226,12 @@ impl ContextState {
 
         if let Some(next) = &mut self.next {
             dbg!("Next state");
-            status.set_state(next.write().into_state_sandwich()?);
+            let nxt = next.write().into_state_sandwich()?;
+            if nxt.is_some() {
+                status.set_state(nxt);
+            } else {
+                status.set_state(Some(next.clone()));
+            }
             Ok(())
         } else {
             dbg!("No next state");
@@ -296,11 +294,6 @@ impl ContextState {
     }
 
     fn output(&mut self) -> Result<OutputStatus, Box<dyn StdError>> {
-        println!("ContextState output {}, used: {}", self.name, self.used);
-        self.used = true;
-        println!("{:?}", self.contexts.iter().map(|c| c.get_value()).collect::<Vec<String>>());
-        println!("ContextState index {}/{}", self.index, self.contexts.len());
-
         let mut status = OutputStatus {
             state_changed: false,
             state: None,
@@ -359,10 +352,8 @@ impl ContextState {
             input_recognized: true,
         };
 
-        println!("OptionsState back()");  
         if self.index == 0 {
             if let Some(p) = &self.parent {
-                println!("Has parent: {}", p.read().get_name());
                 p.write().decrease_index(1);
                 status.state_changed = true;
                 status.state = self.parent.clone();
@@ -409,8 +400,10 @@ impl ContextState {
     }
 
     pub fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
-        let state = Arc::new(RwLock::new(State::ContextState(self.clone())));
-        Ok(Some(state))
+        Ok(None)
+
+        //let state = Arc::new(RwLock::new(State::ContextState(self.clone())));
+        //Ok(Some(state))
     }
 }
 
@@ -455,19 +448,6 @@ impl OptionsState {
     }
 
     fn input(&mut self, input: String) -> Result<InputStatus, Box<dyn StdError>> {
-        println!("OptionsState input {}", self.name);
-        for option in self.options.iter_mut() {
-            let s = option.state.read().clone();
-            match s {
-                State::ContextState(s) => {
-                    println!("{}, next: {}, used: {}", option.get_name(), s.get_name(), s.used);
-                },
-                _ => {
-
-                }
-
-            }
-        }
         let mut status = InputStatus {
             state_changed: false,
             state: None,
@@ -530,9 +510,8 @@ impl OptionsState {
             submit: false,
             input_recognized: true,
         };
-        println!("OptionsState back()");
+
         if let Some(parent) = &self.parent {
-            println!("Has parent");
             status.state_changed = true;
             status.state = self.parent.clone();
             parent.write().decrease_index(2);
@@ -566,7 +545,8 @@ impl OptionsState {
     }
 
     pub fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
-        let state = Arc::new(RwLock::new(State::OptionsState(self.clone())));
-        Ok(Some(state))
+        Ok(None)
+        //let state = Arc::new(RwLock::new(State::OptionsState(self.clone())));
+        //Ok(Some(state))
     }
 }

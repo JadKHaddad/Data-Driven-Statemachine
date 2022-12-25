@@ -5,7 +5,6 @@ use std::error::Error as StdError;
 use std::fmt::Display;
 use std::sync::Arc;
 
-#[derive(Clone)]
 pub enum Context {
     StateContext(StateContext),
     StateOptionsContext(StateOptionsContext),
@@ -111,7 +110,12 @@ impl StateOptionsContext {
     }
 
     fn output(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
-        self.state.write().into_state_sandwich()
+        let s = self.state.write().into_state_sandwich()?;
+        if s.is_some() {
+            Ok(s)
+        } else {
+            Ok(Some(self.state.clone()))
+        }
     }
 
     fn get_name(&self) -> String {
@@ -123,34 +127,38 @@ impl StateOptionsContext {
     }
 
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
-        if let Some(state) = self.state.write().into_state_sandwich()? {
-            let mut state = state.write();
-            let index = state.get_index();
-            let options = state.get_options();
-            if let Some(options) = options {
-                let len = options.len();
-                if let Some(option) = options.get_mut(index) {
-                    if index == len - 1 {
-                        let in_state = option.get_state()?;
-                        if let Some(in_state) = in_state {
-                            let mut in_state = in_state.write();
-                            let contexts = in_state.get_contexts();
-                            if let Some(contexts) = contexts {
-                                let context = contexts.get_mut(0);
-                                if let Some(context) = context {
-                                    return Ok(Ok(ContextLikeCollection::new(
-                                        self.name.clone(),
-                                        context.get_value(),
-                                    )));
-                                }
+        let s = self.state.write().into_state_sandwich()?;
+        let state = if s.is_some() {
+            s.unwrap().clone()
+        } else {
+            self.state.clone()
+        };
+        let mut state = state.write();
+        let index = state.get_index();
+        let options = state.get_options();
+        if let Some(options) = options {
+            let len = options.len();
+            if let Some(option) = options.get_mut(index) {
+                if index == len - 1 {
+                    let in_state = option.get_state()?;
+                    if let Some(in_state) = in_state {
+                        let mut in_state = in_state.write();
+                        let contexts = in_state.get_contexts();
+                        if let Some(contexts) = contexts {
+                            let context = contexts.get_mut(0);
+                            if let Some(context) = context {
+                                return Ok(Ok(ContextLikeCollection::new(
+                                    self.name.clone(),
+                                    context.get_value(),
+                                )));
                             }
                         }
                     }
-                    return Ok(Ok(ContextLikeCollection::new(
-                        self.name.clone(),
-                        option.get_name(),
-                    )));
                 }
+                return Ok(Ok(ContextLikeCollection::new(
+                    self.name.clone(),
+                    option.get_name(),
+                )));
             }
         }
         //something went wrong

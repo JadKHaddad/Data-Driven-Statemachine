@@ -38,8 +38,10 @@ type: !Options
           - name: Some other stuff
         - Let me tell you something
         - Hmm? so what is it?
+      - name: What's poppin again?
+        type: !Normal
     - false
-    - null   
+    - null
 - name: Option3
   submit: false
   state: !Inline

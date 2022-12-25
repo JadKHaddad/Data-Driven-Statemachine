@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::sync::Arc;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SerDeState {
     pub name: String,
     pub description: String,
@@ -38,9 +38,7 @@ impl SerDeState {
                 if let Some(next) = next {
                     let next_state =
                         next.into_into_state(Some(state.clone()), how_to_get_string.clone())?;
-                    state
-                        .write()
-                        .set_next(Some(next_state?));
+                    state.write().set_next(Some(next_state?));
                 }
                 state
             }
@@ -50,9 +48,7 @@ impl SerDeState {
                 )));
                 let options: Vec<StateOption> = options
                     .into_iter()
-                    .map(|x| {
-                        x.into_option(Some(state.clone()), None, how_to_get_string.clone())
-                    })
+                    .map(|x| x.into_option(Some(state.clone()), None, how_to_get_string.clone()))
                     .collect::<Result<Result<Vec<StateOption>, StateError>, Box<dyn StdError>>>(
                     )??;
                 state.write().set_options(options);
@@ -76,14 +72,14 @@ impl SerDeState {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SerDeContext {
     pub name: String,
     pub value: Option<String>,
     pub r#type: ContextType,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum ContextType {
     Normal,
     Options(Vec<SerDeOption>, String, String),
@@ -112,7 +108,7 @@ impl SerDeContext {
                 //create the valid options state
                 let state_for_valid_options: Arc<RwLock<State>> =
                     Arc::new(RwLock::new(State::OptionsState(OptionsState::new(
-                        String::from("OPTIONS"),//name.clone(),
+                        String::from("OPTIONS"), //name.clone(),
                         self.name.clone(),
                         parent_of_options_state.clone(),
                         vec![],
@@ -122,7 +118,7 @@ impl SerDeContext {
                 if let Some(some_parent_of_options_state) = parent_of_options_state.clone() {
                     let state_for_context: Arc<RwLock<State>> =
                         Arc::new(RwLock::new(State::ContextState(ContextState::new(
-                            name.clone(),
+                            String::from("OTHERS"), //name.clone(),
                             self.name.clone(),
                             Some(state_for_valid_options.clone()),
                             Some(some_parent_of_options_state.clone()),
@@ -168,7 +164,7 @@ impl SerDeContext {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SerDeOption {
     pub name: String,
     pub submit: Option<bool>,
@@ -186,22 +182,18 @@ impl SerDeOption {
 
         if let Some(state) = self.state {
             let state = state.into_into_state(parent, how_to_get_string)??;
-            return Ok(Ok(StateOption::new(
-                self.name,
-                state,
-                submit,
-            )));
+            return Ok(Ok(StateOption::new(self.name, state, submit)));
         }
 
         if let Some(state_g) = backup_state {
             return Ok(Ok(StateOption::new(self.name, state_g.clone(), submit)));
         }
-        
+
         Ok(Err(StateError::BadConstruction))
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum SerDeIntoState {
     Inline(SerDeState),
     Path(
@@ -219,8 +211,7 @@ impl SerDeIntoState {
     ) -> Result<Result<Arc<RwLock<State>>, StateError>, Box<dyn StdError>> {
         match self {
             SerDeIntoState::Inline(state) => {
-                let state = state
-                    .into_state(parent, how_to_get_string)??;
+                let state = state.into_state(parent, how_to_get_string)??;
                 Ok(Ok(state))
             }
             SerDeIntoState::Path(path, lazy, which_function) => {
@@ -238,7 +229,7 @@ impl SerDeIntoState {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum StateType {
     Options(Vec<SerDeOption>),
     Context(

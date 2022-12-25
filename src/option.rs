@@ -2,7 +2,6 @@ use crate::state::State;
 use parking_lot::RwLock;
 use std::{error::Error as StdError, sync::Arc};
 
-#[derive(Clone)]
 pub struct StateOption {
     pub name: String,
     pub state: Arc<RwLock<State>>,
@@ -30,7 +29,12 @@ impl StateOption {
     }
 
     pub fn get_state(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
-        self.state.write().into_state_sandwich()
+        let nxt = self.state.write().into_state_sandwich()?;
+        if nxt.is_some() {
+            Ok(nxt)
+        } else {
+            Ok(Some(self.state.clone()))
+        }
     }
 
     pub fn get_submit(&self) -> bool {
