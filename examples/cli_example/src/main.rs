@@ -4,8 +4,7 @@ use statemachine::{
     state::State,
     status::{InputStatus, OutputStatus},
 };
-
-use std::{fs::File, io::Read, sync::Arc};
+use std::{error::Error as StdError, fs::File, io::Read, sync::Arc};
 
 fn run(root: Arc<RwLock<State>>) {
     let mut current_state: Arc<RwLock<State>> = root.clone();
@@ -71,7 +70,7 @@ fn run(root: Arc<RwLock<State>>) {
         }
     }
 }
-use std::error::Error as StdError;
+
 fn main() {
     let how_to_get_string_local = |name: String| {
         let mut file = File::open(&name).unwrap();
@@ -99,27 +98,6 @@ fn main() {
             .unwrap();
     run(state.clone());
 
+    //We are using circular (STRONG ARC) references here, so we need to manually drop the state
     state.write().destroy(true);
-}
-
-pub struct A {
-    pub name: String,
-    pub parent: Option<Arc<RwLock<A>>>,
-    pub next: Option<Arc<RwLock<A>>>,
-}
-
-impl A {
-    pub fn destroy(&mut self) {
-        println!("destroying {}", self.name);
-        self.parent = None;
-        if let Some(next) = &self.next {
-            next.write().destroy();
-        }
-    }
-}
-
-impl Drop for A {
-    fn drop(&mut self) {
-        println!("dropping {}", self.name);
-    }
 }

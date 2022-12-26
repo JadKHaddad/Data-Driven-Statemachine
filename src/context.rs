@@ -1,9 +1,6 @@
-use crate::error::Error as StateError;
-use crate::{collection::ContextLikeCollection, state::State};
+use crate::{collection::ContextLikeCollection, error::Error as StateError, state::State};
 use parking_lot::RwLock;
-use std::error::Error as StdError;
-use std::fmt::Display;
-use std::sync::Arc;
+use std::{error::Error as StdError, fmt::Display, sync::Arc};
 
 pub enum Context {
     StateContext(StateContext),

@@ -1,15 +1,13 @@
-use crate::error::Error as StateError;
-use crate::state::StateHolder;
 use crate::{
     context::{Context, StateContext, StateOptionsContext},
+    error::Error as StateError,
     option::StateOption,
+    state::StateHolder,
     state::{ContextState, OptionsState, State},
 };
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::error::Error as StdError;
-use std::sync::Arc;
+use std::{collections::HashMap, error::Error as StdError, sync::Arc};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SerDeState {
@@ -117,8 +115,7 @@ impl SerDeContext {
         match self.r#type {
             ContextType::Normal => {
                 return Ok(Ok(Context::StateContext(StateContext::new(
-                    self.name,
-                    value,
+                    self.name, value,
                 ))));
             }
             ContextType::Options(options, given_option, given_question) => {
@@ -129,7 +126,7 @@ impl SerDeContext {
                 //create the valid options state
                 let state_for_valid_options: Arc<RwLock<State>> =
                     Arc::new(RwLock::new(State::OptionsState(OptionsState::new(
-                        String::from("OPTIONS"),//name.clone(),
+                        name.clone(),
                         self.name.clone(),
                         parent_of_options_state.clone(),
                         vec![],
@@ -139,14 +136,14 @@ impl SerDeContext {
                 if let Some(some_parent_of_options_state) = parent_of_options_state.clone() {
                     let state_for_context: Arc<RwLock<State>> =
                         Arc::new(RwLock::new(State::ContextState(ContextState::new(
-                            String::from("OTHERS"),//name.clone(),
+                            name.clone(),
                             self.name.clone(),
                             Some(state_for_valid_options.clone()),
                             Some(some_parent_of_options_state.clone()),
                             vec![Context::StateContext(StateContext::new(
                                 given_question,
                                 String::new(),
-                        ))],
+                            ))],
                             false,
                         ))));
 

@@ -1,11 +1,3 @@
-use statemachine::{
-    serde_state::*,
-    status::{InputStatus, OutputStatus},
-};
-
-use std::error::Error as StdError;
-use std::{fs::File, io::Read};
-
 use futures_util::{SinkExt, StreamExt};
 use poem::{
     get, handler,
@@ -16,6 +8,11 @@ use poem::{
     },
     IntoResponse, Route, Server,
 };
+use statemachine::{
+    serde_state::*,
+    status::{InputStatus, OutputStatus},
+};
+use std::{error::Error as StdError, fs::File, io::Read};
 
 #[handler]
 fn index() -> Html<&'static str> {
@@ -85,6 +82,8 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
             .unwrap()
             .unwrap();
 
+    let state_drop = state.clone();
+
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
         tokio::spawn(async move {
@@ -145,7 +144,8 @@ fn ws(Path(name): Path<String>, ws: WebSocket) -> impl IntoResponse {
                     break;
                 }
             }
-            println!("dropped");
+            //We are using circular (STRONG ARC) references here, so we need to manually drop the state
+            state_drop.write().destroy(true);
         });
     })
 }

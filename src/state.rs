@@ -1,16 +1,14 @@
-use crate::context::Context;
-use crate::error::Error as StateError;
-use crate::option::StateOption;
-use crate::serde_state::SerDeState;
-use crate::status::Output;
 use crate::{
     collection::{Collection, ContextLikeCollection},
+    context::Context,
+    error::Error as StateError,
+    option::StateOption,
+    serde_state::SerDeState,
+    status::Output,
     status::{InputStatus, OutputStatus, StatusLike},
 };
 use parking_lot::RwLock;
-use std::collections::HashMap;
-use std::error::Error as StdError;
-use std::sync::Arc;
+use std::{collections::HashMap, error::Error as StdError, sync::Arc};
 
 pub enum State {
     OptionsState(OptionsState),
