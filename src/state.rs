@@ -96,7 +96,7 @@ impl State {
     pub fn reset_index(&mut self) {
         match self {
             State::ContextState(state) => state.reset_index(),
-            _ => {}
+            _ => {} //Could reset index of options state. Reset index of the state of every option!
         }
     }
 
@@ -426,6 +426,9 @@ impl ContextState {
 
     fn reset_index(&mut self) {
         self.index = 0;
+        if self.next.is_some() {
+            self.next.as_ref().unwrap().write().reset_index();
+        }
     }
 
     pub fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
