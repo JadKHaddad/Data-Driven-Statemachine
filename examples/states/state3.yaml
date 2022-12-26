@@ -1,0 +1,13 @@
+name: Submit
+description: Are you sure!?
+type: !Options
+- name: Yes
+  submit: true
+  state: null
+- name: No
+  submit: false
+  reset: true
+  state: !Path 
+    - ../states/state2.yaml  # path (May use a relative path, only for local states tho)
+    - true                   # lazy! should be lazy to avoid stackoverflow!
+    - 0                      # which function to use

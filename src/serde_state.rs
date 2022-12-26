@@ -7,6 +7,7 @@ use crate::{
 };
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
 
@@ -22,6 +23,7 @@ impl SerDeState {
         self,
         parent: Option<Arc<RwLock<State>>>,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
+        cache: Arc<RwLock<HashMap<String, Arc<RwLock<State>>>>>,
     ) -> Result<Result<Arc<RwLock<State>>, StateError>, Box<dyn StdError>> {
         let state: Arc<RwLock<State>> = match self.r#type {
             StateType::Context(contexts, submit, next) => {
@@ -31,13 +33,22 @@ impl SerDeState {
 
                 let contexts: Vec<Context> = contexts
                     .into_iter()
-                    .map(|x| x.into_context(Some(state.clone()), how_to_get_string.clone()))
+                    .map(|x| {
+                        x.into_context(
+                            Some(state.clone()),
+                            how_to_get_string.clone(),
+                            cache.clone(),
+                        )
+                    })
                     .collect::<Result<Result<Vec<Context>, StateError>, Box<dyn StdError>>>()??;
                 state.write().set_contexts(contexts);
 
                 if let Some(next) = next {
-                    let next_state =
-                        next.into_into_state(Some(state.clone()), how_to_get_string.clone())?;
+                    let next_state = next.into_into_state(
+                        Some(state.clone()),
+                        how_to_get_string.clone(),
+                        cache.clone(),
+                    )?;
                     state.write().set_next(Some(next_state?));
                 }
                 state
@@ -48,7 +59,14 @@ impl SerDeState {
                 )));
                 let options: Vec<StateOption> = options
                     .into_iter()
-                    .map(|x| x.into_option(Some(state.clone()), None, how_to_get_string.clone()))
+                    .map(|x| {
+                        x.into_option(
+                            Some(state.clone()),
+                            None,
+                            how_to_get_string.clone(),
+                            cache.clone(),
+                        )
+                    })
                     .collect::<Result<Result<Vec<StateOption>, StateError>, Box<dyn StdError>>>(
                     )??;
                 state.write().set_options(options);
@@ -63,12 +81,14 @@ impl SerDeState {
         name: String,
         which_function: usize,
     ) -> Result<Result<Arc<RwLock<State>>, StateError>, Box<dyn StdError>> {
+        let cache: Arc<RwLock<HashMap<String, Arc<RwLock<State>>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
         let function = how_to_get_string
             .get(which_function)
             .ok_or("Function not found")?;
         let string = function(name)?;
         let state: SerDeState = serde_yaml::from_str(&string)?;
-        Ok(state.into_state(None, how_to_get_string)?)
+        Ok(state.into_state(None, how_to_get_string, cache)?)
     }
 }
 
@@ -90,6 +110,7 @@ impl SerDeContext {
         self,
         parent_of_options_state: Option<Arc<RwLock<State>>>,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
+        cache: Arc<RwLock<HashMap<String, Arc<RwLock<State>>>>>,
     ) -> Result<Result<Context, StateError>, Box<dyn StdError>> {
         let value = self.value.unwrap_or_default();
 
@@ -130,7 +151,12 @@ impl SerDeContext {
                         ))));
 
                     //create the option that holds the context state
-                    let option = StateOption::new(given_option, state_for_context.clone(), false);
+                    let option = StateOption::new(
+                        given_option,
+                        Some(state_for_context.clone()),
+                        false,
+                        false,
+                    );
 
                     //create the valid options
                     let mut options: Vec<StateOption> = options
@@ -140,6 +166,7 @@ impl SerDeContext {
                                 Some(state_for_valid_options.clone()),
                                 parent_of_options_state.clone(),
                                 how_to_get_string.clone(),
+                                cache.clone(),
                             )
                         })
                         .collect::<Result<Result<Vec<StateOption>, StateError>, Box<dyn StdError>>>(
@@ -169,6 +196,7 @@ pub struct SerDeOption {
     pub name: String,
     pub submit: Option<bool>,
     pub state: Option<SerDeIntoState>,
+    pub reset: Option<bool>,
 }
 
 impl SerDeOption {
@@ -177,19 +205,27 @@ impl SerDeOption {
         parent: Option<Arc<RwLock<State>>>,
         backup_state: Option<Arc<RwLock<State>>>,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
+        cache: Arc<RwLock<HashMap<String, Arc<RwLock<State>>>>>,
     ) -> Result<Result<StateOption, StateError>, Box<dyn StdError>> {
         let submit = self.submit.unwrap_or(false);
+        let reset = self.reset.unwrap_or(false);
 
         if let Some(state) = self.state {
-            let state = state.into_into_state(parent, how_to_get_string)??;
-            return Ok(Ok(StateOption::new(self.name, state, submit)));
+            let state = state.into_into_state(parent, how_to_get_string, cache)??;
+            return Ok(Ok(StateOption::new(self.name, Some(state), submit, reset)));
         }
 
         if let Some(state_g) = backup_state {
-            return Ok(Ok(StateOption::new(self.name, state_g.clone(), submit)));
+            return Ok(Ok(StateOption::new(
+                self.name,
+                Some(state_g.clone()),
+                submit,
+                reset,
+            )));
         }
 
-        Ok(Err(StateError::BadConstruction))
+        return Ok(Ok(StateOption::new(self.name, None, submit, reset)));
+        //Ok(Err(StateError::BadConstruction))
     }
 }
 
@@ -208,10 +244,11 @@ impl SerDeIntoState {
         self,
         parent: Option<Arc<RwLock<State>>>,
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
+        cache: Arc<RwLock<HashMap<String, Arc<RwLock<State>>>>>,
     ) -> Result<Result<Arc<RwLock<State>>, StateError>, Box<dyn StdError>> {
         match self {
             SerDeIntoState::Inline(state) => {
-                let state = state.into_state(parent, how_to_get_string)??;
+                let state = state.into_state(parent, how_to_get_string, cache)??;
                 Ok(Ok(state))
             }
             SerDeIntoState::Path(path, lazy, which_function) => {
@@ -222,6 +259,7 @@ impl SerDeIntoState {
                     how_to_get_string,
                     which_function,
                     lazy,
+                    cache,
                 )?);
                 Ok(Ok(Arc::new(RwLock::new(state_holder))))
             }

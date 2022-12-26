@@ -8,6 +8,7 @@ use crate::{
     status::{InputStatus, OutputStatus, StatusLike},
 };
 use parking_lot::RwLock;
+use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
 
@@ -92,6 +93,13 @@ impl State {
         }
     }
 
+    pub fn reset_index(&mut self) {
+        match self {
+            State::ContextState(state) => state.reset_index(),
+            _ => {}
+        }
+    }
+
     pub fn input(&mut self, input: String) -> Result<InputStatus, Box<dyn StdError>> {
         match self {
             State::OptionsState(state) => state.input(input),
@@ -139,6 +147,7 @@ pub struct StateHolder {
     pub how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
     pub which_function: usize,
     pub state: Option<Arc<RwLock<State>>>,
+    pub cache: Arc<RwLock<HashMap<String, Arc<RwLock<State>>>>>,
 }
 
 impl StateHolder {
@@ -148,6 +157,7 @@ impl StateHolder {
         how_to_get_string: Vec<fn(String) -> Result<String, Box<dyn StdError>>>,
         which_function: usize,
         lazy: bool,
+        cache: Arc<RwLock<HashMap<String, Arc<RwLock<State>>>>>,
     ) -> Result<StateHolder, Box<dyn StdError>> {
         let mut state_holder = StateHolder {
             parent,
@@ -155,6 +165,7 @@ impl StateHolder {
             how_to_get_string,
             which_function,
             state: None,
+            cache,
         };
         if !lazy {
             state_holder.into_state_sandwich()?;
@@ -163,10 +174,17 @@ impl StateHolder {
     }
 
     fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
-        if let Some(_) = &self.state {
+        if self.state.is_some() {
             dbg!("State already exists");
             return Ok(self.state.clone());
         }
+
+        if let Some(state) = self.cache.read().get(&self.path) {
+            dbg!("State already exists in cache");
+            self.state = Some(state.clone());
+            return Ok(self.state.clone());
+        }
+
         dbg!("State creating");
         let function = self
             .how_to_get_string
@@ -174,8 +192,15 @@ impl StateHolder {
             .ok_or("Function not found")?;
         let string = function(self.path.clone())?;
         let state: SerDeState = serde_yaml::from_str(&string)?;
-        let state = state.into_state(self.parent.clone(), self.how_to_get_string.clone())??;
+        let state = state.into_state(
+            self.parent.clone(),
+            self.how_to_get_string.clone(),
+            self.cache.clone(),
+        )??;
+
         self.state = Some(state.clone());
+        self.cache.write().insert(self.path.clone(), state.clone());
+
         Ok(Some(state))
     }
 }
@@ -399,11 +424,12 @@ impl ContextState {
         }
     }
 
+    fn reset_index(&mut self) {
+        self.index = 0;
+    }
+
     pub fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
         Ok(None)
-
-        //let state = Arc::new(RwLock::new(State::ContextState(self.clone())));
-        //Ok(Some(state))
     }
 }
 
@@ -546,7 +572,5 @@ impl OptionsState {
 
     pub fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
         Ok(None)
-        //let state = Arc::new(RwLock::new(State::OptionsState(self.clone())));
-        //Ok(Some(state))
     }
 }

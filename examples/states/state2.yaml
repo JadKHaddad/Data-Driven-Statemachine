@@ -12,13 +12,15 @@ type: !Context
       - name: What's poppin again?
         type: !Normal
     - false   # submit
-    - null
-    # - !Inline # next
-    #   name: Child1
-    #   description: I am a Child of after some options.
-    #   type: !Context
-    #   - - name: How you like it now?
-    #       type: !Normal
-    #   - false
-    #   - null
+    - !Inline # next
+      name: Child1
+      description: I am a Child of after some options.
+      type: !Context
+      - - name: How you like it now?
+          type: !Normal
+      - false
+      - !Path 
+        - ../states/state3.yaml  # path (May use a relative path, only for local states tho)
+        - false                  # lazy
+        - 0                      # which function to use
     
