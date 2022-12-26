@@ -24,6 +24,13 @@ impl StateOption {
         }
     }
 
+    pub fn destroy(&mut self) {
+        if let Some(state) = &self.state {
+            state.write().destroy();
+        }
+        self.state = None;
+    }
+
     pub fn input(&self, input: &String) -> bool {
         if &self.name == input {
             return true;

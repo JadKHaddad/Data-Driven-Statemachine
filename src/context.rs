@@ -51,6 +51,13 @@ impl Context {
             Context::StateOptionsContext(state_options_context) => state_options_context.collect(),
         }
     }
+
+    pub fn destroy(&mut self) {
+        match self {
+            Context::StateContext(state_context) => state_context.destroy(),
+            Context::StateOptionsContext(state_options_context) => state_options_context.destroy(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -86,6 +93,10 @@ impl StateContext {
             self.value.clone(),
         )))
     }
+
+    fn destroy(&mut self) {
+
+    }
 }
 
 #[derive(Clone)]
@@ -97,12 +108,12 @@ pub struct StateOptionsContext {
     //the next state of the ContextState would be the parent of the state that has this option
     pub name: String,
     pub value: String,
-    pub state: Arc<RwLock<State>>,
+    pub state: Option<Arc<RwLock<State>>>,
 }
 
 impl StateOptionsContext {
     pub fn new(name: String, value: String, state: Arc<RwLock<State>>) -> StateOptionsContext {
-        StateOptionsContext { name, value, state }
+        StateOptionsContext { name, value, state: Some(state) }
     }
 
     fn input(&mut self, input: String) {
@@ -110,11 +121,11 @@ impl StateOptionsContext {
     }
 
     fn output(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
-        let s = self.state.write().into_state_sandwich()?;
+        let s = self.state.as_ref().unwrap().write().into_state_sandwich()?;
         if s.is_some() {
             Ok(s)
         } else {
-            Ok(Some(self.state.clone()))
+            Ok(Some(self.state.as_ref().unwrap().clone()))
         }
     }
 
@@ -127,11 +138,11 @@ impl StateOptionsContext {
     }
 
     fn collect(&mut self) -> Result<Result<ContextLikeCollection, StateError>, Box<dyn StdError>> {
-        let s = self.state.write().into_state_sandwich()?;
+        let s = self.state.as_ref().unwrap().write().into_state_sandwich()?;
         let state = if s.is_some() {
             s.unwrap().clone()
         } else {
-            self.state.clone()
+            self.state.as_ref().unwrap().clone()
         };
         let mut state = state.write();
         let index = state.get_index();
@@ -164,6 +175,13 @@ impl StateOptionsContext {
         //something went wrong
         Ok(Err(StateError::BadConstruction))
     }
+
+    fn destroy(&mut self) {
+        // if let Some(state) = &self.state { //do not! this will cause a deadlock
+        //     state.write().destroy();
+        // }
+        self.state = None;
+    }
 }
 
 impl Display for Context {
@@ -194,7 +212,7 @@ impl Display for StateOptionsContext {
             "StateOptionsContext: Name: {}, Value: {} | Parent: {}",
             self.name,
             self.value,
-            self.state.read().get_name()
+            self.state.as_ref().unwrap().read().get_name()
         )
     }
 }

@@ -96,5 +96,30 @@ fn main() {
     let state = SerDeState::create_from_yaml_str(functions, String::from("../states/state.yaml"), 0)
         .unwrap()
         .unwrap();
-    run(state);
+    run(state.clone());
+    
+    state.write().destroy();
 }
+
+pub struct A {
+    pub name : String,
+    pub parent: Option<Arc<RwLock<A>>>,
+    pub next: Option<Arc<RwLock<A>>>,
+}
+
+impl A {
+    pub fn destroy(&mut self) {
+        println!("destroying {}", self.name);
+        self.parent = None;
+        if let Some(next) = &self.next {
+            next.write().destroy();
+        }
+    }
+}
+
+impl Drop for A {
+    fn drop(&mut self) {
+        println!("dropping {}", self.name);
+    }
+}
+    

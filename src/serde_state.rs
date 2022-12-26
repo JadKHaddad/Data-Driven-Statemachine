@@ -182,7 +182,7 @@ impl SerDeContext {
                     return Ok(Ok(Context::StateOptionsContext(StateOptionsContext {
                         name: self.name,
                         value,
-                        state: state_for_valid_options.clone(),
+                        state: Some(state_for_valid_options.clone()),
                     })));
                 }
                 Ok(Err(StateError::BadConstruction))

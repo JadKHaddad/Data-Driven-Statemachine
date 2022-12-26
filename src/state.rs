@@ -18,12 +18,18 @@ pub enum State {
     StateHolder(StateHolder),
 }
 
+impl Drop for State {
+    fn drop(&mut self) {
+        println!("Dropping state: {}", self.get_name());
+    }
+}
+
 impl State {
     pub fn get_name(&self) -> String {
         match self {
             State::OptionsState(state) => state.get_name(),
             State::ContextState(state) => state.get_name(),
-            _ => unimplemented!(),
+            State::StateHolder(state) => state.get_name(),
         }
     }
 
@@ -139,6 +145,14 @@ impl State {
             State::StateHolder(state) => state.into_state_sandwich(),
         }
     }
+
+    pub fn destroy(&mut self) {
+        match self {
+            State::OptionsState(state) => state.destroy(),
+            State::ContextState(state) => state.destroy(),
+            State::StateHolder(state) => state.destroy(),
+        }
+    }
 }
 
 pub struct StateHolder {
@@ -203,6 +217,19 @@ impl StateHolder {
 
         Ok(Some(state))
     }
+
+    fn destroy(&mut self) {
+        if let Some(state) = &self.state {
+            println!("Destroying state of stateholder");
+            state.write().destroy();
+        }
+        self.state = None;
+        self.cache.write().remove(&self.path);
+    }
+
+    fn get_name(&self) -> String {
+        self.path.clone()
+    }
 }
 
 pub struct OptionsState {
@@ -243,6 +270,17 @@ impl ContextState {
             submit,
             go_back: false,
         }
+    }
+
+    fn destroy(&mut self) {
+        for context in &mut self.contexts {
+            context.destroy();
+        }
+        if let Some(next) = &self.next {
+            next.write().destroy();
+        }
+        self.parent = None;
+        self.next = None;
     }
 
     fn on_highest_index(&mut self, status: &mut impl StatusLike) -> Result<(), Box<dyn StdError>> {
@@ -450,6 +488,13 @@ impl OptionsState {
             parent,
             options,
         }
+    }
+
+    fn destroy(&mut self) {
+        for option in &mut self.options {
+            option.destroy();
+        }
+        self.parent = None;
     }
 
     fn get_name(&self) -> String {
