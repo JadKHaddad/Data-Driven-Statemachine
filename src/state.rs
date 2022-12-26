@@ -146,11 +146,11 @@ impl State {
         }
     }
 
-    pub fn destroy(&mut self) {
+    pub fn destroy(&mut self, destroy_options: bool) {
         match self {
-            State::OptionsState(state) => state.destroy(),
-            State::ContextState(state) => state.destroy(),
-            State::StateHolder(state) => state.destroy(),
+            State::OptionsState(state) => state.destroy(destroy_options),
+            State::ContextState(state) => state.destroy(destroy_options),
+            State::StateHolder(state) => state.destroy(destroy_options),
         }
     }
 }
@@ -173,6 +173,7 @@ impl StateHolder {
         lazy: bool,
         cache: Arc<RwLock<HashMap<String, Arc<RwLock<State>>>>>,
     ) -> Result<StateHolder, Box<dyn StdError>> {
+        println!("Creating state holder for {}", path);
         let mut state_holder = StateHolder {
             parent,
             path,
@@ -189,17 +190,17 @@ impl StateHolder {
 
     fn into_state_sandwich(&mut self) -> Result<Option<Arc<RwLock<State>>>, Box<dyn StdError>> {
         if self.state.is_some() {
-            dbg!("State already exists");
+            //dbg!("State already exists");
             return Ok(self.state.clone());
         }
 
         if let Some(state) = self.cache.read().get(&self.path) {
-            dbg!("State already exists in cache");
+            //dbg!("State already exists in cache");
             self.state = Some(state.clone());
             return Ok(self.state.clone());
         }
 
-        dbg!("State creating");
+        //dbg!("State creating");
         let function = self
             .how_to_get_string
             .get(self.which_function)
@@ -218,10 +219,9 @@ impl StateHolder {
         Ok(Some(state))
     }
 
-    fn destroy(&mut self) {
+    fn destroy(&mut self, destroy_options: bool) {
         if let Some(state) = &self.state {
-            println!("Destroying state of stateholder");
-            state.write().destroy();
+            state.write().destroy(destroy_options);
         }
         self.state = None;
         self.cache.write().remove(&self.path);
@@ -260,6 +260,7 @@ impl ContextState {
         contexts: Vec<Context>,
         submit: bool,
     ) -> ContextState {
+        println!("Creating context state {}", name);
         ContextState {
             name,
             description,
@@ -272,12 +273,12 @@ impl ContextState {
         }
     }
 
-    fn destroy(&mut self) {
+    fn destroy(&mut self, destroy_options: bool) {
         for context in &mut self.contexts {
             context.destroy();
         }
         if let Some(next) = &self.next {
-            next.write().destroy();
+            next.write().destroy(destroy_options);
         }
         self.parent = None;
         self.next = None;
@@ -481,6 +482,7 @@ impl OptionsState {
         parent: Option<Arc<RwLock<State>>>,
         options: Vec<StateOption>,
     ) -> OptionsState {
+        println!("Creating options state {}", name);
         OptionsState {
             name,
             description,
@@ -490,9 +492,9 @@ impl OptionsState {
         }
     }
 
-    fn destroy(&mut self) {
+    fn destroy(&mut self, destroy_options: bool) {
         for option in &mut self.options {
-            option.destroy();
+            option.destroy(destroy_options);
         }
         self.parent = None;
     }

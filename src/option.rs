@@ -24,9 +24,11 @@ impl StateOption {
         }
     }
 
-    pub fn destroy(&mut self) {
-        if let Some(state) = &self.state {
-            state.write().destroy();
+    pub fn destroy(&mut self, destroy_state: bool) {
+        if destroy_state {
+            if let Some(state) = &self.state {
+                state.write().destroy(destroy_state);
+            }
         }
         self.state = None;
     }

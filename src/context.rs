@@ -94,9 +94,7 @@ impl StateContext {
         )))
     }
 
-    fn destroy(&mut self) {
-
-    }
+    fn destroy(&mut self) {}
 }
 
 #[derive(Clone)]
@@ -113,7 +111,11 @@ pub struct StateOptionsContext {
 
 impl StateOptionsContext {
     pub fn new(name: String, value: String, state: Arc<RwLock<State>>) -> StateOptionsContext {
-        StateOptionsContext { name, value, state: Some(state) }
+        StateOptionsContext {
+            name,
+            value,
+            state: Some(state),
+        }
     }
 
     fn input(&mut self, input: String) {
@@ -177,9 +179,9 @@ impl StateOptionsContext {
     }
 
     fn destroy(&mut self) {
-        // if let Some(state) = &self.state { //do not! this will cause a deadlock
-        //     state.write().destroy();
-        // }
+        if let Some(state) = &self.state {
+            state.write().destroy(false);
+        }
         self.state = None;
     }
 }

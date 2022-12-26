@@ -116,10 +116,10 @@ impl SerDeContext {
 
         match self.r#type {
             ContextType::Normal => {
-                return Ok(Ok(Context::StateContext(StateContext {
-                    name: self.name,
+                return Ok(Ok(Context::StateContext(StateContext::new(
+                    self.name,
                     value,
-                })));
+                ))));
             }
             ContextType::Options(options, given_option, given_question) => {
                 let name = match parent_of_options_state.clone() {
@@ -129,7 +129,7 @@ impl SerDeContext {
                 //create the valid options state
                 let state_for_valid_options: Arc<RwLock<State>> =
                     Arc::new(RwLock::new(State::OptionsState(OptionsState::new(
-                        name.clone(),
+                        String::from("OPTIONS"),//name.clone(),
                         self.name.clone(),
                         parent_of_options_state.clone(),
                         vec![],
@@ -139,14 +139,14 @@ impl SerDeContext {
                 if let Some(some_parent_of_options_state) = parent_of_options_state.clone() {
                     let state_for_context: Arc<RwLock<State>> =
                         Arc::new(RwLock::new(State::ContextState(ContextState::new(
-                            name.clone(),
+                            String::from("OTHERS"),//name.clone(),
                             self.name.clone(),
                             Some(state_for_valid_options.clone()),
                             Some(some_parent_of_options_state.clone()),
-                            vec![Context::StateContext(StateContext {
-                                name: given_question,
-                                value: String::new(),
-                            })],
+                            vec![Context::StateContext(StateContext::new(
+                                given_question,
+                                String::new(),
+                        ))],
                             false,
                         ))));
 
@@ -179,11 +179,11 @@ impl SerDeContext {
                     state_for_valid_options.write().set_options(options);
 
                     //return the OptionsContext
-                    return Ok(Ok(Context::StateOptionsContext(StateOptionsContext {
-                        name: self.name,
+                    return Ok(Ok(Context::StateOptionsContext(StateOptionsContext::new(
+                        self.name,
                         value,
-                        state: Some(state_for_valid_options.clone()),
-                    })));
+                        state_for_valid_options.clone(),
+                    ))));
                 }
                 Ok(Err(StateError::BadConstruction))
             }

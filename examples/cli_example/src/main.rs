@@ -93,16 +93,17 @@ fn main() {
     let functions: Vec<fn(String) -> Result<String, Box<dyn StdError>>> =
         vec![how_to_get_string_local, how_to_get_string_from_api];
 
-    let state = SerDeState::create_from_yaml_str(functions, String::from("../states/state.yaml"), 0)
-        .unwrap()
-        .unwrap();
+    let state =
+        SerDeState::create_from_yaml_str(functions, String::from("../states/state.yaml"), 0)
+            .unwrap()
+            .unwrap();
     run(state.clone());
-    
-    state.write().destroy();
+
+    state.write().destroy(true);
 }
 
 pub struct A {
-    pub name : String,
+    pub name: String,
     pub parent: Option<Arc<RwLock<A>>>,
     pub next: Option<Arc<RwLock<A>>>,
 }
@@ -122,4 +123,3 @@ impl Drop for A {
         println!("dropping {}", self.name);
     }
 }
-    
